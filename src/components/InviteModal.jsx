@@ -1,51 +1,54 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 export default function InviteModal({ listId, onClose }) {
-  const [email, setEmail] = useState('')
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState(null)
+  const [copied, setCopied] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleInvite = async (e) => {
-    e.preventDefault()
+  const handleGenerate = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      // Create invite record in DB
-      const token = crypto.randomUUID()
-const { error: dbError } = await supabase
+      const { data: existing } = await supabase
         .from('invites')
-        .insert({
-          list_id: listId,
-          email: email.toLowerCase().trim(),
-          token,
-          role: 'collaborator',
-          invited_by: (await supabase.auth.getUser()).data.user.id,
-        })
+        .select('token')
+        .eq('list_id', listId)
+        .limit(1)
 
-      if (dbError) throw new Error(dbError.message)
+      let token
+      if (existing && existing.length > 0) {
+        token = existing[0].token
+      } else {
+        token = crypto.randomUUID()
+        const { error: dbError } = await supabase
+          .from('invites')
+          .insert({
+            list_id: listId,
+            token,
+            role: 'collaborator',
+            invited_by: user.id,
+            email: 'pending',
+          })
+        if (dbError) throw new Error(dbError.message)
+      }
 
-      // Build the invite URL
-      const inviteUrl = window.location.origin + '?invite=' + token
-
-      // Send magic link with invite URL as redirect
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        email: email.toLowerCase().trim(),
-        options: {
-          emailRedirectTo: inviteUrl,
-        }
-      })
-
-      if (authError) throw new Error(authError.message)
-
-      setSent(true)
+      setInviteUrl(window.location.origin + '?invite=' + token)
     } catch (err) {
       setError(err.message)
     }
 
     setLoading(false)
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(inviteUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -57,35 +60,33 @@ const { error: dbError } = await supabase
         </div>
 
         <div className="invite-body">
-          {sent ? (
-            <div className="invite-sent">
-              <div className="invite-sent-icon">✉️</div>
-              <h3>Invite sent!</h3>
-              <p>We sent a link to <strong>{email}</strong>. When they click it they'll land directly in your list.</p>
-              <button className="btn-magic" onClick={onClose}>Done</button>
-            </div>
-          ) : (
+          {!inviteUrl ? (
             <>
-              <p className="invite-desc">Enter your partner's email. They'll get a link that drops them straight into your shared list.</p>
-              <form onSubmit={handleInvite} className="invite-form">
-                <input
-                  type="email"
-                  placeholder="partner@email.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  className="email-input"
-                />
-                <button
-                  type="submit"
-                  className="btn-magic"
-                  disabled={loading || !email}
-                >
-                  {loading ? 'Sending...' : 'Send Invite'}
-                </button>
-              </form>
+              <p className="invite-desc">
+                Generate a link and send it however you like — text, email, carrier pigeon. They tap it, create an account, and land straight in your shared list.
+              </p>
+              <button
+                className="btn-magic"
+                onClick={handleGenerate}
+                disabled={loading}
+              >
+                {loading ? 'Generating...' : 'Generate Invite Link'}
+              </button>
               {error && <p className="auth-error">{error}</p>}
             </>
+          ) : (
+            <div className="invite-link-box">
+              <p className="invite-desc">Send this link to your partner:</p>
+              <div className="invite-url-row">
+                <div className="invite-url-display">{inviteUrl}</div>
+                <button className="btn-copy" onClick={handleCopy}>
+                  {copied ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="invite-desc" style={{fontSize: '12px', marginTop: '4px'}}>
+                They'll create an account and land directly in your list.
+              </p>
+            </div>
           )}
         </div>
       </div>

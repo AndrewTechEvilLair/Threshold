@@ -1092,3 +1092,44 @@ body {
   color: var(--text-secondary);
   line-height: 1.6;
 }
+/* ── INVITE LINK ── */
+.invite-link-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invite-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.invite-url-display {
+  flex: 1;
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.btn-copy {
+  background: var(--coral);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-family: "Outfit", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  align-self: stretch;
+}
+
+.btn-copy:hover { opacity: 0.88; }

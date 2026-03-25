@@ -30,35 +30,33 @@ export default function Dashboard() {
     if (user) initList()
   }, [user])
 
-  async function initList() {
+ async function initList() {
     setLoading(true)
 
-    // First check if user owns a list
-    let { data: ownedList } = await supabase
+    // Check if user owns a list
+    let { data: owned } = await supabase
       .from('lists')
       .select('id')
       .eq('owner_id', user.id)
       .limit(1)
       .single()
 
-    if (ownedList) {
-      setListId(ownedList.id)
-      await loadHomes(ownedList.id)
-      await loadPartner(ownedList.id)
+    if (owned) {
+      setListId(owned.id)
+      await loadHomes(owned.id)
+      await loadPartner(owned.id)
       setLoading(false)
       return
     }
 
-    // Check if user has an accepted invite
-const { data: invites } = await supabase
+    // Check if user has an accepted invite — join that list instead
+    const { data: invites } = await supabase
       .from('invites')
       .select('list_id')
       .eq('accepted_by', user.id)
       .limit(1)
 
-    const invite = invites?.[0] || null
-    console.log('invite lookup:', invite, 'user:', user.id)
-
+    const invite = invites?.[0]
 
     if (invite) {
       setListId(invite.list_id)
@@ -68,7 +66,7 @@ const { data: invites } = await supabase
       return
     }
 
-    // No list and no invite — create a new list
+    // No list, no invite — create a new list (only for genuine new users)
     const { data: created } = await supabase
       .from('lists')
       .insert({ owner_id: user.id, name: 'My Home List' })
@@ -81,7 +79,6 @@ const { data: invites } = await supabase
 
     setLoading(false)
   }
-
   async function loadHomes(id) {
     const lid = id || listId
     if (!lid) return
@@ -132,50 +129,48 @@ const { data: invites } = await supabase
     const listId_ = lid || listId
     if (!listId_) return
 
-    // Find accepted invite for this list
-    const { data: invite } = await supabase
+    const { data: invites } = await supabase
       .from('invites')
       .select('accepted_by, email')
       .eq('list_id', listId_)
       .not('accepted_by', 'is', null)
       .limit(1)
-      .single()
+
+    const invite = invites?.[0] || null
+    console.log('loadPartner invite:', invite, 'listId_:', listId_)
 
     if (!invite) return
 
     setPartner({ id: invite.accepted_by, email: invite.email })
 
-    // Load partner's rankings
     const { data: rankData } = await supabase
       .from('rankings')
       .select('home_id, rank_position')
       .eq('user_id', invite.accepted_by)
 
-    // Load partner's ratings
     const { data: ratingData } = await supabase
       .from('ratings')
       .select('home_id, intensity')
       .eq('user_id', invite.accepted_by)
-
-    const rankMap = {}
-    rankData?.forEach(r => { rankMap[r.home_id] = r.rank_position })
-
-const ratingMap = {}
-    ratingData?.forEach(r => { ratingMap[r.home_id] = r.intensity })
 
     const { data: partnerNotesData } = await supabase
       .from('notes')
       .select('home_id, body')
       .eq('user_id', invite.accepted_by)
 
-    const partnerNotesMap = {}
-    partnerNotesData?.forEach(n => { partnerNotesMap[n.home_id] = n.body })
+    const rankMap = {}
+    rankData?.forEach(r => { rankMap[r.home_id] = r.rank_position })
+
+    const ratingMap = {}
+    ratingData?.forEach(r => { ratingMap[r.home_id] = r.intensity })
+
+    const notesMap = {}
+    partnerNotesData?.forEach(n => { notesMap[n.home_id] = n.body })
 
     setPartnerRankings(rankMap)
     setPartnerRatings(ratingMap)
-    setPartnerNotesMap(partnerNotesMap)
+    setPartnerNotesMap(notesMap)
 
-    // Sort homes by partner's rank
     setPartnerHomes([...homes].sort((a, b) => {
       const ra = rankMap[a.id] ?? 9999
       const rb = rankMap[b.id] ?? 9999
