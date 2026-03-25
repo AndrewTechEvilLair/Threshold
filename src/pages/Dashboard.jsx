@@ -248,7 +248,8 @@ const combinedHomes = [...homes].map((home, index) => {
     const avgRank = (myRank + partnerRank) / 2
     const avgIntensity = (myIntensity + partnerIntensity) / 2
     const rankScore = ((homes.length + 1 - avgRank) / homes.length) * 100
-    const score = Math.round((rankScore * 0.5) + (avgIntensity * 0.5))
+    const intensityScore = (avgIntensity - 50) * 2
+    const score = Math.round((rankScore * 0.7) + (intensityScore * 0.3))
     return {
       ...home,
       score,
