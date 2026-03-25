@@ -27,8 +27,8 @@ export default function Dashboard() {
 
 
   useEffect(() => {
-    if (user) initList()
-  }, [user])
+    if (user?.id) initList()
+  }, [user?.id])
 
  async function initList() {
     setLoading(true)
@@ -80,6 +80,8 @@ export default function Dashboard() {
     setLoading(false)
   }
   async function loadHomes(id) {
+        console.log('loadHomes called', new Date().toISOString())
+
     const lid = id || listId
     if (!lid) return
 
@@ -91,7 +93,7 @@ export default function Dashboard() {
 
     const { data: rankData } = await supabase
       .from('rankings')
-      .select('home_id, rank_position')
+      .select('home_id, position')
       .eq('user_id', user.id)
 
     const { data: ratingData } = await supabase
@@ -105,7 +107,8 @@ export default function Dashboard() {
       .eq('user_id', user.id)
 
     const rankMap = {}
-    rankData?.forEach(r => { rankMap[r.home_id] = r.rank_position })
+    rankData?.forEach(r => { rankMap[r.home_id] = r.position })
+
 
     const ratingMap = {}
     ratingData?.forEach(r => { ratingMap[r.home_id] = r.intensity })
@@ -143,9 +146,9 @@ export default function Dashboard() {
 
     setPartner({ id: invite.accepted_by, email: invite.email })
 
-    const { data: rankData } = await supabase
+const { data: rankData } = await supabase
       .from('rankings')
-      .select('home_id, rank_position')
+      .select('home_id, position')
       .eq('user_id', invite.accepted_by)
 
     const { data: ratingData } = await supabase
@@ -159,7 +162,8 @@ export default function Dashboard() {
       .eq('user_id', invite.accepted_by)
 
     const rankMap = {}
-    rankData?.forEach(r => { rankMap[r.home_id] = r.rank_position })
+    rankData?.forEach(r => { rankMap[r.home_id] = r.position })
+
 
     const ratingMap = {}
     ratingData?.forEach(r => { ratingMap[r.home_id] = r.intensity })
@@ -178,14 +182,17 @@ export default function Dashboard() {
     }))
   }
 
-  async function saveRankings(orderedHomes) {
+async function saveRankings(orderedHomes) {
     const upserts = orderedHomes.map((home, i) => ({
       user_id: user.id,
       home_id: home.id,
       list_id: listId,
-      rank_position: i + 1,
+      position: i + 1,
     }))
-    await supabase.from('rankings').upsert(upserts, { onConflict: 'user_id,home_id' })
+    const { data, error } = await supabase
+      .from('rankings')
+      .upsert(upserts, { onConflict: 'list_id,home_id,user_id' })
+    console.log('saveRankings:', { data, error, upserts })
   }
 
   async function saveRating(homeId, intensity) {
