@@ -34,13 +34,11 @@ Steps:
 For photo_url specifically: search Zillow or Redfin for this address, find a listing photo, and return the direct CDN image URL. These typically look like https://photos.zillowstatic.com/fp/... or https://ssl.cdn-redfin.com/...
 Set any unknown fields to null. Return ONLY the raw JSON.`
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('https://threshold-parser.lordbizness1234.workers.dev/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
