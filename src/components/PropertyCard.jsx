@@ -14,7 +14,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
     if (val < 50) return '🤔 Maybe'
     if (val < 75) return '😊 Like It'
     return '😍 Packing Bags'
-  }
+   }
 
   const handleNoteSave = () => {
     onNoteSave(home.id, note)
