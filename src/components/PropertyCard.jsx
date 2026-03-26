@@ -62,9 +62,11 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
 
       if (uploadError) throw new Error(uploadError.message)
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from('home-photos')
         .getPublicUrl(fileName)
+
+      const publicUrl = urlData.publicUrl
 
       const { error: dbError } = await supabase
         .from('homes')
