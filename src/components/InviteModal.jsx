@@ -37,7 +37,7 @@ export default function InviteModal({ listId, onClose }) {
         if (dbError) throw new Error(dbError.message)
       }
 
-      setInviteUrl(window.location.origin + '?invite=' + token)
+      setInviteUrl(window.location.origin + window.location.pathname + '?invite=' + token)
     } catch (err) {
       setError(err.message)
     }
