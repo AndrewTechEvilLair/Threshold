@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script>
+      window.location.replace(
+        '/Threshold/' + window.location.pathname.slice(1)
+      );
+    </script>
+  </head>
+</html>
+```
+
+**Fix 2 — Update your Supabase redirect URL**
+
+The callback is landing at the root. In Supabase → Authentication → URL Configuration add this exact URL to Redirect URLs:
+```
+https://andrewtechevillair.github.io/Threshold/
+```
+
+And set Site URL to:
+```
+https://andrewtechevillair.github.io/Threshold/
+```
+
+**Fix 3 — Update Google Cloud Console**
+
+In your Google OAuth credentials → Authorized redirect URIs, confirm you have:
+```
+https://bcbssntzilaethvadbkk.supabase.co/auth/v1/callback
