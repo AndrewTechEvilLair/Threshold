@@ -10,7 +10,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const formatPrice = (p) => p ? '$' + p.toLocaleString() : 'Price N/A'
 
   const intensityLabel = (val) => {
-    if (val < 25) return '😬 Hard Pass'
+     if (val < 25) return '😬 Hard Pass'
     if (val < 50) return '🤔 Maybe'
     if (val < 75) return '😊 Like It'
     return '😍 Packing Bags'
