@@ -216,6 +216,9 @@ export default function Dashboard() {
     await supabase.from('homes').delete().eq('id', homeId)
     setHomes(prev => prev.filter(h => h.id !== homeId))
   }
+  function handlePhotoUpdate(homeId, photoUrl) {
+  setHomes(prev => prev.map(h => h.id === homeId ? { ...h, photo_url: photoUrl } : h))
+}
 
   function handleDragStart(index) { dragItem.current = index }
   function handleDragEnter(index) { dragOver.current = index }
@@ -366,15 +369,16 @@ export default function Dashboard() {
                   onMouseUp={(e) => { e.currentTarget.draggable = true }}
                 >
                   <PropertyCard
-                    home={home}
-                    rank={index + 1}
-                    intensity={ratings[home.id] ?? 50}
-                    onIntensityChange={(val) => saveRating(home.id, val)}
-                    onDelete={deleteHome}
-                    onNoteSave={saveNote}
-                    isHighlighted={highlightedId === home.id}
-                    cardRef={el => cardRefs.current[home.id] = el}
-                  />
+  home={home}
+  rank={index + 1}
+  intensity={ratings[home.id] ?? 50}
+  onIntensityChange={(val) => saveRating(home.id, val)}
+  onDelete={deleteHome}
+  onNoteSave={saveNote}
+  onPhotoUpdate={handlePhotoUpdate}
+  isHighlighted={highlightedId === home.id}
+  cardRef={el => cardRefs.current[home.id] = el}
+/>
                 </div>
               ))
             )}
