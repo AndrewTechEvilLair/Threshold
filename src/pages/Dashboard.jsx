@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
@@ -25,15 +25,13 @@ export default function Dashboard() {
   const cardRefs = useRef({})
   const [partnerNotesMap, setPartnerNotesMap] = useState({})
 
-
   useEffect(() => {
     if (user?.id) initList()
   }, [user?.id])
 
- async function initList() {
+  async function initList() {
     setLoading(true)
 
-    // Check if user owns a list
     let { data: owned } = await supabase
       .from('lists')
       .select('id')
@@ -49,7 +47,6 @@ export default function Dashboard() {
       return
     }
 
-    // Check if user has an accepted invite — join that list instead
     const { data: invites } = await supabase
       .from('invites')
       .select('list_id')
@@ -66,22 +63,17 @@ export default function Dashboard() {
       return
     }
 
-    // No list, no invite — create a new list (only for genuine new users)
     const { data: created } = await supabase
       .from('lists')
       .insert({ owner_id: user.id, name: 'My Home List' })
       .select('id')
       .single()
 
-    if (created) {
-      setListId(created.id)
-    }
-
+    if (created) setListId(created.id)
     setLoading(false)
   }
-  async function loadHomes(id) {
-        console.log('loadHomes called', new Date().toISOString())
 
+  async function loadHomes(id) {
     const lid = id || listId
     if (!lid) return
 
@@ -109,7 +101,6 @@ export default function Dashboard() {
     const rankMap = {}
     rankData?.forEach(r => { rankMap[r.home_id] = r.position })
 
-
     const ratingMap = {}
     ratingData?.forEach(r => { ratingMap[r.home_id] = r.intensity })
 
@@ -132,6 +123,12 @@ export default function Dashboard() {
     const listId_ = lid || listId
     if (!listId_) return
 
+    const { data: listData } = await supabase
+      .from('lists')
+      .select('owner_id')
+      .eq('id', listId_)
+      .single()
+
     const { data: invites } = await supabase
       .from('invites')
       .select('accepted_by, email')
@@ -140,30 +137,32 @@ export default function Dashboard() {
       .limit(1)
 
     const invite = invites?.[0] || null
-    console.log('loadPartner invite:', invite, 'listId_:', listId_)
+    if (!invite || !listData) return
 
-    if (!invite) return
+    const ownerId = listData.owner_id
+    const collaboratorId = invite.accepted_by
+    const partnerId = user.id === ownerId ? collaboratorId : ownerId
+    const partnerEmail = partnerId === collaboratorId ? invite.email : 'Owner'
 
-    setPartner({ id: invite.accepted_by, email: invite.email })
+    setPartner({ id: partnerId, email: partnerEmail })
 
-const { data: rankData } = await supabase
+    const { data: rankData } = await supabase
       .from('rankings')
       .select('home_id, position')
-      .eq('user_id', invite.accepted_by)
+      .eq('user_id', partnerId)
 
     const { data: ratingData } = await supabase
       .from('ratings')
       .select('home_id, intensity')
-      .eq('user_id', invite.accepted_by)
+      .eq('user_id', partnerId)
 
     const { data: partnerNotesData } = await supabase
       .from('notes')
       .select('home_id, body')
-      .eq('user_id', invite.accepted_by)
+      .eq('user_id', partnerId)
 
     const rankMap = {}
     rankData?.forEach(r => { rankMap[r.home_id] = r.position })
-
 
     const ratingMap = {}
     ratingData?.forEach(r => { ratingMap[r.home_id] = r.intensity })
@@ -182,17 +181,16 @@ const { data: rankData } = await supabase
     }))
   }
 
-async function saveRankings(orderedHomes) {
+  async function saveRankings(orderedHomes) {
     const upserts = orderedHomes.map((home, i) => ({
       user_id: user.id,
       home_id: home.id,
       list_id: listId,
       position: i + 1,
     }))
-    const { data, error } = await supabase
+    await supabase
       .from('rankings')
       .upsert(upserts, { onConflict: 'list_id,home_id,user_id' })
-    console.log('saveRankings:', { data, error, upserts })
   }
 
   async function saveRating(homeId, intensity) {
@@ -229,6 +227,10 @@ async function saveRankings(orderedHomes) {
     dragOver.current = null
     setHomes(updated)
     saveRankings(updated)
+    // Update rankings map so combined tab recalculates immediately
+    const newRankings = {}
+    updated.forEach((home, i) => { newRankings[home.id] = i + 1 })
+    setRankings(newRankings)
   }
 
   function handleThumbnailClick(homeId) {
@@ -239,27 +241,30 @@ async function saveRankings(orderedHomes) {
 
   const handleSignOut = async () => { await supabase.auth.signOut() }
 
-  // Combined score calculation
-const combinedHomes = [...homes].map((home, index) => {
-    const myRank = rankings[home.id] ?? (index + 1)
-    const myIntensity = ratings[home.id] ?? 50
-    const partnerRank = partnerRankings[home.id] ?? (index + 1)
-    const partnerIntensity = partnerRatings[home.id] ?? 50
-    const avgRank = (myRank + partnerRank) / 2
-    const avgIntensity = (myIntensity + partnerIntensity) / 2
-    const rankScore = ((homes.length + 1 - avgRank) / homes.length) * 100
-    const intensityScore = (avgIntensity - 50) * 2
-    const score = Math.round((rankScore * 0.7) + (intensityScore * 0.3))
-    return {
-      ...home,
-      score,
-      myRank,
-      myIntensity,
-      partnerRank,
-      partnerIntensity,
-      partner_note: partnerNotesMap[home.id] || null,
-    }
-  }).sort((a, b) => b.score - a.score)
+  // Combined score — neutral sort by id so result is identical for both users
+  const combinedHomes = [...homes]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((home, _, arr) => {
+      const n = arr.length
+      const myRank = rankings[home.id] ?? n
+      const myIntensity = ratings[home.id] ?? 50
+      const partnerRank = partnerRankings[home.id] ?? n
+      const partnerIntensity = partnerRatings[home.id] ?? 50
+      const avgRank = (myRank + partnerRank) / 2
+      const avgIntensity = (myIntensity + partnerIntensity) / 2
+      const rankScore = ((n + 1 - avgRank) / n) * 100
+      const intensityScore = (avgIntensity - 50) * 2
+      const score = Math.round((rankScore * 0.7) + (intensityScore * 0.3))
+      return {
+        ...home,
+        score,
+        myRank,
+        myIntensity,
+        partnerRank,
+        partnerIntensity,
+        partner_note: partnerNotesMap[home.id] || null,
+      }
+    }).sort((a, b) => b.score - a.score)
 
   if (loading) return <div className="loading-screen">Loading your list...</div>
 
@@ -269,9 +274,11 @@ const combinedHomes = [...homes].map((home, index) => {
         <div className="logo">THRESHOLD</div>
         <div className="header-right">
           <span className="user-email">{user?.email}</span>
-          <button className="btn-invite" onClick={() => setShowInvite(true)}>
-            + Partner
-          </button>
+          {!partner && (
+            <button className="btn-invite" onClick={() => setShowInvite(true)}>
+              + Partner
+            </button>
+          )}
           <button className="btn-signout" onClick={handleSignOut}>Sign out</button>
           <button className="btn-add" onClick={() => setShowAdd(true)}>+ Add</button>
         </div>
@@ -279,9 +286,6 @@ const combinedHomes = [...homes].map((home, index) => {
 
       <div className="view-bar">
         <div className={`view-tab ${activeTab === 'mine' ? 'active' : ''}`} onClick={() => setActiveTab('mine')}>My List</div>
-        <div className={`view-tab ${activeTab === 'partner' ? 'active' : ''}`} onClick={() => setActiveTab('partner')}>
-          {partner ? partner.email.split('@')[0] : 'Partner'}
-        </div>
         <div className={`view-tab ${activeTab === 'combined' ? 'active' : ''}`} onClick={() => setActiveTab('combined')}>Combined</div>
         <div className={`view-tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</div>
       </div>
@@ -289,7 +293,9 @@ const combinedHomes = [...homes].map((home, index) => {
       <div className="sub-bar">
         <span className="sub-count">
           <strong>{homes.length} {homes.length === 1 ? 'home' : 'homes'}</strong>
-          {homes.length === 0 ? ' · add your first listing' : ' · drag to reorder'}
+          {activeTab === 'mine' && (homes.length === 0 ? ' · add your first listing' : ' · drag to reorder')}
+          {activeTab === 'combined' && ' · sorted by combined score'}
+          {activeTab === 'analytics' && ' · your list at a glance'}
         </span>
       </div>
 
@@ -377,327 +383,273 @@ const combinedHomes = [...homes].map((home, index) => {
         </div>
       )}
 
-      {/* PARTNER TAB */}
-      {activeTab === 'partner' && (
-        <div className="dashboard-body">
-          {!partner ? (
-            <div className="empty-state partner-empty">
-              <p>No partner yet.</p>
-              <p>Invite someone to see their rankings here.</p>
-              <button className="btn-magic" style={{marginTop: '20px', width: 'auto', padding: '12px 28px'}} onClick={() => setShowInvite(true)}>
-                + Invite Partner
-              </button>
-            </div>
-          ) : partnerHomes.length === 0 ? (
-            <div className="empty-state">
-              <p>{partner.email.split('@')[0]} hasn't ranked any homes yet.</p>
-            </div>
-          ) : (
-            <div className="dashboard-body">
-              <div className="thumb-sidebar">
-                {partnerHomes.map((home, index) => (
-                  <div
-                    key={home.id}
-                    className={'thumb-item' + (highlightedId === home.id ? ' thumb-active' : '')}
-                    onClick={() => handleThumbnailClick(home.id)}
-                  >
-                    <div className="thumb-rank">{'#' + (index + 1)}</div>
-                    <div className="thumb-img">
-                      {home.photo_url
-                        ? <img src={home.photo_url} alt={home.address} />
-                        : <div className="thumb-placeholder" />
-                      }
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="card-list">
-                {partnerHomes.map((home, index) => (
-                  <div key={home.id}>
-                    <PropertyCard
-                      home={home}
-                      rank={index + 1}
-                      intensity={partnerRatings[home.id] ?? 50}
-                      onIntensityChange={() => {}}
-                      onDelete={() => {}}
-                      onNoteSave={() => {}}
-                      isHighlighted={highlightedId === home.id}
-                      cardRef={el => cardRefs.current[home.id] = el}
-                      readOnly
-                    />
-                  </div>
-                ))}
-                <div className="card-list-spacer" />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* COMBINED TAB */}
-{activeTab === 'combined' && (
-  <div className="dashboard-body">
-    <div className="card-list">
-      {combinedHomes.length === 0 ? (
-        <div className="empty-state">
-          <p>No homes yet.</p>
+      {activeTab === 'combined' && (
+        <div className="dashboard-body">
+          <div className="card-list">
+            {combinedHomes.length === 0 ? (
+              <div className="empty-state"><p>No homes yet.</p></div>
+            ) : (
+              combinedHomes.map((home, index) => {
+                const intensityEmoji = (val) => {
+                  if (val < 25) return '😬'
+                  if (val < 50) return '🤔'
+                  if (val < 75) return '😊'
+                  return '😍'
+                }
+                const mapTileUrl = home.lat && home.lng
+                  ? `https://staticmap.openstreetmap.de/staticmap.php?center=${home.lat},${home.lng}&zoom=15&size=250x250&markers=${home.lat},${home.lng},red`
+                  : null
+                const photoSrc = home.photo_url || mapTileUrl
+
+                return (
+                  <div key={home.id} className="card">
+                    {/* Main row: rank | photo | info | score */}
+                    <div className="card-main">
+
+                      <div className="card-rank-col">
+                        <span className="card-rank-num">{'#' + (index + 1)}</span>
+                        <span className="card-rank-label">rank</span>
+                      </div>
+
+                      <div className="card-photo">
+                        {photoSrc
+                          ? <img src={photoSrc} alt={home.address} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+                          : <div className="card-photo-placeholder" style={{flexDirection:'column',gap:'4px',padding:'8px',textAlign:'center'}}>
+                              <div style={{fontSize:'12px',fontWeight:700,color:'var(--text-muted)',lineHeight:1.3}}>{home.city || '—'}</div>
+                              {home.state && <div style={{fontSize:'10px',color:'var(--text-muted)',opacity:0.6}}>{home.state}</div>}
+                            </div>
+                        }
+                      </div>
+
+                      <div className="card-info">
+                        <div className="card-top">
+                          <div className="card-address-block">
+                            <div className="card-address-link">{home.address}</div>
+                            <div className="card-city">{[home.city, home.state, home.zip].filter(Boolean).join(', ')}</div>
+                          </div>
+                          <div className="card-price">{home.price ? '$' + home.price.toLocaleString() : 'Price N/A'}</div>
+                        </div>
+                        <div className="card-stats">
+                          {home.beds  && <div className="card-stat"><span className="card-stat-val">{home.beds}</span><span className="card-stat-label">Beds</span></div>}
+                          {home.baths && <div className="card-stat"><span className="card-stat-val">{home.baths}</span><span className="card-stat-label">Baths</span></div>}
+                          {home.sqft  && <div className="card-stat"><span className="card-stat-val">{home.sqft.toLocaleString()}</span><span className="card-stat-label">Sqft</span></div>}
+                          {home.acres && <div className="card-stat"><span className="card-stat-val">{home.acres}</span><span className="card-stat-label">Acres</span></div>}
+                        </div>
+                        {home.url && (
+                          <div className="card-source-row">
+                            <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="card-actions" style={{justifyContent:'center'}}>
+                        <div style={{textAlign:'center'}}>
+                          <div style={{fontFamily:'"Syne",sans-serif',fontSize:'16px',fontWeight:800,color:'var(--coral)'}}>★ {Math.max(0, home.score)}</div>
+                          <div style={{fontSize:'9px',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'1px',marginTop:'3px'}}>score</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* People + notes — each person's note under their own slider */}
+                    <div className="card-body" style={{gap:'12px'}}>
+                      <div className="combined-people">
+                        <div className="combined-person">
+                          <div className="combined-person-label">You</div>
+                          <div className="combined-person-rank">#{home.myRank}</div>
+                          <div className="combined-intensity-row">
+                            <span className="combined-emoji">{intensityEmoji(home.myIntensity)}</span>
+                            <div className="combined-bar-track">
+                              <div className="combined-bar-fill" style={{width: home.myIntensity + '%'}} />
+                            </div>
+                            <span className="combined-pct">{home.myIntensity}%</span>
+                          </div>
+                          {home.user_note && (
+                            <div style={{fontSize:'12px',color:'var(--text-secondary)',marginTop:'8px',lineHeight:1.5}}>
+                              {home.user_note.slice(0, 100)}{home.user_note.length > 100 ? '…' : ''}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="combined-divider" />
+
+                        <div className="combined-person">
+                          <div className="combined-person-label">Partner</div>
+                          <div className="combined-person-rank">#{home.partnerRank}</div>
+                          <div className="combined-intensity-row">
+                            <span className="combined-emoji">{intensityEmoji(home.partnerIntensity)}</span>
+                            <div className="combined-bar-track">
+                              <div className="combined-bar-fill partner" style={{width: home.partnerIntensity + '%'}} />
+                            </div>
+                            <span className="combined-pct">{home.partnerIntensity}%</span>
+                          </div>
+                          {home.partner_note && (
+                            <div style={{fontSize:'12px',color:'var(--text-secondary)',marginTop:'8px',lineHeight:1.5}}>
+                              {home.partner_note.slice(0, 100)}{home.partner_note.length > 100 ? '…' : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+            <div className="card-list-spacer" />
+          </div>
         </div>
-      ) : (
-        combinedHomes.map((home, index) => {
-          const rankGap = Math.abs(home.myRank - home.partnerRank)
-          const intensityGap = Math.abs(home.myIntensity - home.partnerIntensity)
-          const isDisagreement = rankGap >= 4 || intensityGap >= 35
-
-          const intensityLabel = (val) => {
-            if (val < 25) return '😬'
-            if (val < 50) return '🤔'
-            if (val < 75) return '😊'
-            return '😍'
-          }
-
-          return (
-            <div key={home.id} className="combined-card">
-              <div className="combined-left">
-                <div className="combined-rank-badge">#{index + 1}</div>
-                {home.photo_url && (
-                  <div className="combined-photo">
-                    <img src={home.photo_url} alt={home.address} />
-                  </div>
-                )}
-              </div>
-
-              <div className="combined-info">
-                <div className="combined-header">
-                  <div>
-                    <div className="combined-address">{home.address}</div>
-                    <div className="combined-city">
-                      {[home.city, home.state].filter(Boolean).join(', ')}
-                      {home.year_built ? ' · Built ' + home.year_built : ''}
-                    </div>
-                  </div>
-                  <div className="combined-price">{home.price ? '$' + home.price.toLocaleString() : 'Price N/A'}</div>
-                </div>
-
-                {isDisagreement && (
-                  <div className="disagreement-badge">💬 Talk about this one</div>
-                )}
-
-                <div className="combined-people">
-                  <div className="combined-person">
-                    <div className="combined-person-label">You</div>
-                    <div className="combined-person-rank">#{home.myRank}</div>
-                    <div className="combined-intensity-row">
-                      <span className="combined-emoji">{intensityLabel(home.myIntensity)}</span>
-                      <div className="combined-bar-track">
-                        <div className="combined-bar-fill" style={{width: home.myIntensity + '%'}} />
-                      </div>
-                      <span className="combined-pct">{home.myIntensity}%</span>
-                    </div>
-                  </div>
-
-                  <div className="combined-divider" />
-
-                  <div className="combined-person">
-                    <div className="combined-person-label">{partner ? partner.email.split('@')[0] : 'Partner'}</div>
-                    <div className="combined-person-rank">#{home.partnerRank}</div>
-                    <div className="combined-intensity-row">
-                      <span className="combined-emoji">{intensityLabel(home.partnerIntensity)}</span>
-                      <div className="combined-bar-track">
-                        <div className="combined-bar-fill partner" style={{width: home.partnerIntensity + '%'}} />
-                      </div>
-                      <span className="combined-pct">{home.partnerIntensity}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {(home.user_note || home.partner_note) && (
-                  <div className="combined-notes">
-                    {home.user_note && (
-                      <div className="combined-note">
-                        <span className="combined-note-who">You:</span>
-                        <span className="combined-note-text">{home.user_note.slice(0, 80)}{home.user_note.length > 80 ? '…' : ''}</span>
-                      </div>
-                    )}
-                    {home.partner_note && (
-                      <div className="combined-note">
-                        <span className="combined-note-who">{partner ? partner.email.split('@')[0] : 'Partner'}:</span>
-                        <span className="combined-note-text">{home.partner_note.slice(0, 80)}{home.partner_note.length > 80 ? '…' : ''}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="combined-star-row">
-                  <span className="combined-star">★ {Math.max(0, home.score)}</span>
-                </div>
-              </div>
-            </div>
-          )
-        })
       )}
-      <div className="card-list-spacer" />
-    </div>
-  </div>
-)}
 
       {/* ANALYTICS TAB */}
-{activeTab === 'analytics' && (
-  <div className="analytics-wrap">
-    <div className="analytics-metrics">
-      <div className="an-metric">
-        <div className="an-val">{homes.length}</div>
-        <div className="an-label">homes tracked</div>
-      </div>
-      <div className="an-metric">
-        <div className="an-val">
-          {homes.filter(h => h.price).length > 0
-            ? '$' + Math.round(homes.filter(h => h.price).reduce((s, h) => s + h.price, 0) / homes.filter(h => h.price).length / 1000) + 'K'
-            : '—'}
-        </div>
-        <div className="an-label">avg price</div>
-      </div>
-      <div className="an-metric">
-        <div className="an-val">
-          {homes.filter(h => h.beds).length > 0
-            ? Math.round(homes.filter(h => h.beds).reduce((s, h) => s + h.beds, 0) / homes.filter(h => h.beds).length) + ' bd'
-            : '—'}
-        </div>
-        <div className="an-label">avg beds</div>
-      </div>
-      <div className="an-metric">
-        <div className="an-val">
-          {Object.values(ratings).length > 0
-            ? Math.round(Object.values(ratings).reduce((s, v) => s + v, 0) / Object.values(ratings).length) + '%'
-            : '—'}
-        </div>
-        <div className="an-label">avg intensity</div>
-      </div>
-    </div>
-
-    <div className="analytics-row">
-      <div className="an-card">
-        <div className="an-card-title">Intensity</div>
-        <div className="an-bubbles">
-          {[...homes].sort((a, b) => (ratings[b.id] ?? 50) - (ratings[a.id] ?? 50)).map(home => {
-            const intensity = ratings[home.id] ?? 50
-            const size = Math.round(30 + (intensity / 100) * 70)
-            const opacity = 0.4 + (intensity / 100) * 0.6
-            return (
-              <div key={home.id} className="an-bubble-col">
-                <div
-                  className="an-bubble"
-                  style={{
-                    width: size,
-                    height: size,
-                    background: `rgba(255,96,64,${opacity})`,
-                    fontSize: size > 55 ? 13 : 11,
-                  }}
-                >
-                  {intensity}%
-                </div>
-                <div className="an-bubble-label">{home.address?.split(' ').slice(0,3).join(' ')}</div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="an-card">
-        <div className="an-card-title">Price vs your rank</div>
-        <div className="an-price-list">
-          {[...homes].map((home, index) => {
-            const maxPrice = Math.max(...homes.filter(h => h.price).map(h => h.price))
-            const barWidth = home.price ? Math.round((home.price / maxPrice) * 100) : 0
-            return (
-              <div key={home.id} className="an-price-row">
-                <span className="an-price-rank">#{index + 1}</span>
-                <span className="an-price-addr">{home.address?.split(',')[0]}</span>
-                <div className="an-price-bar-bg">
-                  <div className="an-price-bar" style={{width: barWidth + '%'}} />
-                </div>
-                <span className="an-price-val">{home.price ? '$' + Math.round(home.price / 1000) + 'K' : '—'}</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-
-    <div className="analytics-row">
-      <div className="an-card">
-        <div className="an-card-title">Agreement</div>
-        {homes.map(home => {
-          const myRank = rankings[home.id]
-          const pRank = partnerRankings[home.id]
-          const myInt = ratings[home.id] ?? 50
-          const pInt = partnerRatings[home.id] ?? 50
-          const hasPartner = pRank != null
-          const rankGap = hasPartner ? Math.abs(myRank - pRank) : null
-          const intGap = hasPartner ? Math.abs(myInt - pInt) : null
-          const isDisagreement = hasPartner && (rankGap >= 4 || intGap >= 35)
-          return (
-            <div key={home.id} className="an-agree-row">
-              <div className="an-agree-addr">{home.address?.split(',')[0]}</div>
-              {!hasPartner
-                ? <span className="an-badge an-badge-waiting">waiting</span>
-                : isDisagreement
-                ? <span className="an-badge an-badge-talk">💬 talk</span>
-                : <span className="an-badge an-badge-agree">✓ agree</span>
-              }
+      {activeTab === 'analytics' && (
+        <div className="analytics-wrap">
+          <div className="analytics-metrics">
+            <div className="an-metric">
+              <div className="an-val">{homes.length}</div>
+              <div className="an-label">homes tracked</div>
             </div>
-          )
-        })}
-      </div>
+            <div className="an-metric">
+              <div className="an-val">
+                {homes.filter(h => h.price).length > 0
+                  ? '$' + Math.round(homes.filter(h => h.price).reduce((s, h) => s + h.price, 0) / homes.filter(h => h.price).length / 1000) + 'K'
+                  : '—'}
+              </div>
+              <div className="an-label">avg price</div>
+            </div>
+            <div className="an-metric">
+              <div className="an-val">
+                {homes.filter(h => h.beds).length > 0
+                  ? Math.round(homes.filter(h => h.beds).reduce((s, h) => s + h.beds, 0) / homes.filter(h => h.beds).length) + ' bd'
+                  : '—'}
+              </div>
+              <div className="an-label">avg beds</div>
+            </div>
+            <div className="an-metric">
+              <div className="an-val">
+                {Object.values(ratings).length > 0
+                  ? Math.round(Object.values(ratings).reduce((s, v) => s + v, 0) / Object.values(ratings).length) + '%'
+                  : '—'}
+              </div>
+              <div className="an-label">avg intensity</div>
+            </div>
+          </div>
 
-      <div className="an-card">
-        <div className="an-card-title">List stats</div>
-        <div className="an-stats-list">
-          <div className="an-stat-row">
-            <span className="an-stat-label">States</span>
-            <span className="an-stat-val">{[...new Set(homes.map(h => h.state).filter(Boolean))].join(', ') || '—'}</span>
-          </div>
-          <div className="an-stat-row">
-            <span className="an-stat-label">Price range</span>
-            <span className="an-stat-val">
-              {homes.filter(h => h.price).length > 1
-                ? '$' + Math.round(Math.min(...homes.filter(h=>h.price).map(h=>h.price))/1000) + 'K – $' + Math.round(Math.max(...homes.filter(h=>h.price).map(h=>h.price))/1000) + 'K'
-                : '—'}
-            </span>
-          </div>
-          <div className="an-stat-row">
-            <span className="an-stat-label">Oldest built</span>
-            <span className="an-stat-val">{homes.filter(h=>h.year_built).length > 0 ? Math.min(...homes.filter(h=>h.year_built).map(h=>h.year_built)) : '—'}</span>
-          </div>
-          <div className="an-stat-row">
-            <span className="an-stat-label">Newest built</span>
-            <span className="an-stat-val">{homes.filter(h=>h.year_built).length > 0 ? Math.max(...homes.filter(h=>h.year_built).map(h=>h.year_built)) : '—'}</span>
-          </div>
-          <div className="an-stat-row">
-            <span className="an-stat-label">Sources</span>
-            <span className="an-stat-val">{[...new Set(homes.map(h => h.source_site).filter(Boolean))].join(', ') || '—'}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+          <div className="analytics-row">
+            <div className="an-card">
+              <div className="an-card-title">Intensity</div>
+              <div className="an-bubbles">
+                {[...homes].sort((a, b) => (ratings[b.id] ?? 50) - (ratings[a.id] ?? 50)).map(home => {
+                  const intensity = ratings[home.id] ?? 50
+                  const size = Math.round(30 + (intensity / 100) * 70)
+                  const opacity = 0.4 + (intensity / 100) * 0.6
+                  return (
+                    <div key={home.id} className="an-bubble-col">
+                      <div className="an-bubble" style={{ width: size, height: size, background: `rgba(255,96,64,${opacity})`, fontSize: size > 55 ? 13 : 11 }}>
+                        {intensity}%
+                      </div>
+                      <div className="an-bubble-label">{home.address?.split(' ').slice(0,3).join(' ')}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
 
-    {(() => {
-      const topHome = combinedHomes[0]
-      const cheapest = [...homes].filter(h=>h.price).sort((a,b) => a.price - b.price)[0]
-      if (!topHome) return null
-      const topIsCheapest = cheapest && topHome.id === cheapest.id
-      return (
-        <div className="an-insight">
-          {topIsCheapest
-            ? `Your #1 pick (${topHome.address?.split(',')[0]}) is also your cheapest at $${Math.round(topHome.price/1000)}K — strong signal.`
-            : `Your top ranked home is ${topHome.address?.split(',')[0]} at $${topHome.price ? Math.round(topHome.price/1000)+'K' : 'unknown price'}.`
-          }
-          {Object.values(ratings).length > 0 && ` Average intensity is ${Math.round(Object.values(ratings).reduce((s,v)=>s+v,0)/Object.values(ratings).length)}%.`}
-          {!partner && ' Invite your partner to unlock agreement tracking.'}
+            <div className="an-card">
+              <div className="an-card-title">Price vs your rank</div>
+              <div className="an-price-list">
+                {[...homes].map((home, index) => {
+                  const maxPrice = Math.max(...homes.filter(h => h.price).map(h => h.price))
+                  const barWidth = home.price ? Math.round((home.price / maxPrice) * 100) : 0
+                  return (
+                    <div key={home.id} className="an-price-row">
+                      <span className="an-price-rank">#{index + 1}</span>
+                      <span className="an-price-addr">{home.address?.split(',')[0]}</span>
+                      <div className="an-price-bar-bg">
+                        <div className="an-price-bar" style={{width: barWidth + '%'}} />
+                      </div>
+                      <span className="an-price-val">{home.price ? '$' + Math.round(home.price / 1000) + 'K' : '—'}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="analytics-row">
+            <div className="an-card">
+              <div className="an-card-title">Agreement</div>
+              {homes.map(home => {
+                const myRank = rankings[home.id]
+                const pRank = partnerRankings[home.id]
+                const myInt = ratings[home.id] ?? 50
+                const pInt = partnerRatings[home.id] ?? 50
+                const hasPartner = pRank != null
+                const rankGap = hasPartner ? Math.abs(myRank - pRank) : null
+                const intGap = hasPartner ? Math.abs(myInt - pInt) : null
+                const isDisagreement = hasPartner && (rankGap >= 4 || intGap >= 35)
+                return (
+                  <div key={home.id} className="an-agree-row">
+                    <div className="an-agree-addr">{home.address?.split(',')[0]}</div>
+                    {!hasPartner
+                      ? <span className="an-badge an-badge-waiting">waiting</span>
+                      : isDisagreement
+                      ? <span className="an-badge an-badge-talk">💬 talk</span>
+                      : <span className="an-badge an-badge-agree">✓ agree</span>
+                    }
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="an-card">
+              <div className="an-card-title">List stats</div>
+              <div className="an-stats-list">
+                <div className="an-stat-row">
+                  <span className="an-stat-label">States</span>
+                  <span className="an-stat-val">{[...new Set(homes.map(h => h.state).filter(Boolean))].join(', ') || '—'}</span>
+                </div>
+                <div className="an-stat-row">
+                  <span className="an-stat-label">Price range</span>
+                  <span className="an-stat-val">
+                    {homes.filter(h => h.price).length > 1
+                      ? '$' + Math.round(Math.min(...homes.filter(h=>h.price).map(h=>h.price))/1000) + 'K – $' + Math.round(Math.max(...homes.filter(h=>h.price).map(h=>h.price))/1000) + 'K'
+                      : '—'}
+                  </span>
+                </div>
+                <div className="an-stat-row">
+                  <span className="an-stat-label">Oldest built</span>
+                  <span className="an-stat-val">{homes.filter(h=>h.year_built).length > 0 ? Math.min(...homes.filter(h=>h.year_built).map(h=>h.year_built)) : '—'}</span>
+                </div>
+                <div className="an-stat-row">
+                  <span className="an-stat-label">Newest built</span>
+                  <span className="an-stat-val">{homes.filter(h=>h.year_built).length > 0 ? Math.max(...homes.filter(h=>h.year_built).map(h=>h.year_built)) : '—'}</span>
+                </div>
+                <div className="an-stat-row">
+                  <span className="an-stat-label">Sources</span>
+                  <span className="an-stat-val">{[...new Set(homes.map(h => h.source_site).filter(Boolean))].join(', ') || '—'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {(() => {
+            const topHome = combinedHomes[0]
+            const cheapest = [...homes].filter(h=>h.price).sort((a,b) => a.price - b.price)[0]
+            if (!topHome) return null
+            const topIsCheapest = cheapest && topHome.id === cheapest.id
+            return (
+              <div className="an-insight">
+                {topIsCheapest
+                  ? `Your #1 pick (${topHome.address?.split(',')[0]}) is also your cheapest at $${Math.round(topHome.price/1000)}K — strong signal.`
+                  : `Your top ranked home is ${topHome.address?.split(',')[0]} at $${topHome.price ? Math.round(topHome.price/1000)+'K' : 'unknown price'}.`
+                }
+                {Object.values(ratings).length > 0 && ` Average intensity is ${Math.round(Object.values(ratings).reduce((s,v)=>s+v,0)/Object.values(ratings).length)}%.`}
+                {!partner && ' Invite your partner to unlock agreement tracking.'}
+              </div>
+            )
+          })()}
         </div>
-      )
-    })()}
-  </div>
-)}
+      )}
     </div>
   )
 }
