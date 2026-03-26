@@ -7,11 +7,13 @@ export default function Login() {
   const [magicSent, setMagicSent] = useState(false)
   const [error, setError] = useState(null)
 
+  const redirectTo = window.location.origin + window.location.pathname.replace(/\/$/, '')
+
   const handleGoogle = async () => {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin }
+      options: { redirectTo }
     })
     if (error) setError(error.message)
     setLoading(false)
@@ -23,7 +25,7 @@ export default function Login() {
     setError(null)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin }
+      options: { emailRedirectTo: redirectTo }
     })
     if (error) setError(error.message)
     else setMagicSent(true)
