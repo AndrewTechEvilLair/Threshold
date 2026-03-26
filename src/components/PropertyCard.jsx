@@ -205,4 +205,4 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
       </div>
     </div>
   )
- }
+}
