@@ -1,20 +1,24 @@
-﻿import { useState } from 'react'
+﻿import { useState, useRef } from 'react'
+import { supabase } from '../lib/supabase'
 
-export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, isHighlighted, cardRef }) {
+export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, onPhotoUpdate, isHighlighted, cardRef }) {
   const [note, setNote] = useState(home.user_note || '')
   const [noteExpanded, setNoteExpanded] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [mapError, setMapError] = useState(false)
+  const [pasteActive, setPasteActive] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const photoRef = useRef(null)
 
   const formatPrice = (p) => p ? '$' + p.toLocaleString() : 'Price N/A'
 
   const intensityLabel = (val) => {
-     if (val < 25) return '😬 Hard Pass'
+    if (val < 25) return '😬 Hard Pass'
     if (val < 50) return '🤔 Maybe'
     if (val < 75) return '😊 Like It'
     return '😍 Packing Bags'
-   }
+  }
 
   const handleNoteSave = () => {
     onNoteSave(home.id, note)
@@ -25,19 +29,71 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
     }, 1500)
   }
 
+  // ── Photo paste handler ──
+  const handlePhotoClick = () => {
+    setPasteActive(true)
+    photoRef.current?.focus()
+  }
+
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    let imageFile = null
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        imageFile = item.getAsFile()
+        break
+      }
+    }
+
+    if (!imageFile) return
+    e.preventDefault()
+    setPasteActive(false)
+    setUploading(true)
+
+    try {
+      const ext = imageFile.type.split('/')[1] || 'png'
+      const fileName = `home-${home.id}-${Date.now()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('home-photos')
+        .upload(fileName, imageFile, { contentType: imageFile.type, upsert: true })
+
+      if (uploadError) throw new Error(uploadError.message)
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('home-photos')
+        .getPublicUrl(fileName)
+
+      const { error: dbError } = await supabase
+        .from('homes')
+        .update({ photo_url: publicUrl })
+        .eq('id', home.id)
+
+      if (dbError) throw new Error(dbError.message)
+
+      setImgError(false)
+      onPhotoUpdate(home.id, publicUrl)
+    } catch (err) {
+      console.error('Photo upload failed:', err)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(
     [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
   )
 
   const statItems = [
-    home.beds      ? { label: 'Beds',  val: home.beds }                  : null,
-    home.baths     ? { label: 'Baths', val: home.baths }                 : null,
-    home.sqft      ? { label: 'Sqft',  val: home.sqft.toLocaleString() } : null,
-    home.acres     ? { label: 'Acres', val: home.acres }                 : null,
-    home.year_built ? { label: 'Built', val: home.year_built }           : null,
+    home.beds       ? { label: 'Beds',  val: home.beds }                  : null,
+    home.baths      ? { label: 'Baths', val: home.baths }                 : null,
+    home.sqft       ? { label: 'Sqft',  val: home.sqft.toLocaleString() } : null,
+    home.acres      ? { label: 'Acres', val: home.acres }                 : null,
+    home.year_built ? { label: 'Built', val: home.year_built }            : null,
   ].filter(Boolean)
 
-  // Map tile — OSM static map centered on coordinates, 25% larger than card height
   const mapTileUrl = home.lat && home.lng && !mapError
     ? `https://staticmap.openstreetmap.de/staticmap.php?center=${home.lat},${home.lng}&zoom=15&size=250x250&markers=${home.lat},${home.lng},red`
     : null
@@ -45,6 +101,26 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const showPhoto = home.photo_url && !imgError
 
   const renderCardImage = () => {
+    if (uploading) {
+      return (
+        <div className="card-photo-placeholder">
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>Uploading…</span>
+        </div>
+      )
+    }
+
+    if (pasteActive) {
+      return (
+        <div
+          className="card-photo-placeholder card-photo-paste-active"
+          style={{ cursor: 'default' }}
+        >
+          <span style={{ fontSize: '20px' }}>📋</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Press Ctrl+V</span>
+        </div>
+      )
+    }
+
     if (showPhoto) {
       return (
         <img
@@ -55,6 +131,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
         />
       )
     }
+
     if (mapTileUrl) {
       return (
         <img
@@ -65,11 +142,12 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
         />
       )
     }
-    // Final fallback — styled placeholder
+
     const initials = home.address?.split(' ').slice(0, 2).map(w => w[0]).join('') || '?'
     return (
       <div className="card-photo-placeholder">
         <span className="card-photo-initials">{initials}</span>
+        <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', letterSpacing: '0.5px' }}>Click to add photo</span>
       </div>
     )
   }
@@ -88,8 +166,18 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           <span className="card-rank-label">rank</span>
         </div>
 
-        {/* Photo / Map tile */}
-        <div className="card-photo">
+        {/* Photo / Map tile — click to activate paste zone */}
+        <div
+          className="card-photo"
+          ref={photoRef}
+          tabIndex={0}
+          onClick={handlePhotoClick}
+          onPaste={handlePaste}
+          onBlur={() => setPasteActive(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setPasteActive(false) }}
+          title={showPhoto ? 'Click to replace photo' : 'Click then Ctrl+V to add photo'}
+          style={{ cursor: uploading ? 'wait' : 'pointer', outline: pasteActive ? '2px solid var(--accent)' : 'none' }}
+        >
           {renderCardImage()}
         </div>
 
@@ -123,14 +211,14 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
 
           {/* Source link + MLS */}
           {(home.url || home.mls_number) && (
-            <div className="card-source-row" style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
+            <div className="card-source-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               {home.url && (
                 <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">
                   {'View on ' + (home.source_site || 'listing') + ' →'}
                 </a>
               )}
               {home.mls_number && (
-                <span style={{fontSize:'11px',color:'var(--text-muted)'}}>MLS# {home.mls_number}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MLS# {home.mls_number}</span>
               )}
             </div>
           )}
@@ -141,11 +229,11 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
         <div className="card-actions">
           <div className="drag-handle" title="Drag to reorder">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="4" cy="3"  r="1.4" fill="currentColor"/>
-              <circle cx="10" cy="3" r="1.4" fill="currentColor"/>
-              <circle cx="4" cy="7"  r="1.4" fill="currentColor"/>
-              <circle cx="10" cy="7" r="1.4" fill="currentColor"/>
-              <circle cx="4" cy="11" r="1.4" fill="currentColor"/>
+              <circle cx="4"  cy="3"  r="1.4" fill="currentColor"/>
+              <circle cx="10" cy="3"  r="1.4" fill="currentColor"/>
+              <circle cx="4"  cy="7"  r="1.4" fill="currentColor"/>
+              <circle cx="10" cy="7"  r="1.4" fill="currentColor"/>
+              <circle cx="4"  cy="11" r="1.4" fill="currentColor"/>
               <circle cx="10" cy="11" r="1.4" fill="currentColor"/>
             </svg>
           </div>
