@@ -27,7 +27,8 @@ Steps:
   "photo_url": "direct image URL from photos.zillowstatic.com or ssl.cdn-redfin.com",
   "description": "2-3 sentence description",
   "highlights": ["up to 4 short feature tags"],
-  "source_site": "zillow | redfin | realtor | homes | trulia"
+  "source_site": "zillow | redfin | realtor | homes | trulia",
+  "mls_number": "MLS number as a string e.g. 1327198"
 }
 
 For photo_url specifically: search Zillow or Redfin for this address, find a listing photo, and return the direct CDN image URL. These typically look like https://photos.zillowstatic.com/fp/... or https://ssl.cdn-redfin.com/...
@@ -143,6 +144,7 @@ export default function AddListing({ listId, onAdded }) {
           description: data.description,
           highlights: data.highlights,
           source_site: data.source_site,
+          mls_number: data.mls_number ?? null,
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
         })

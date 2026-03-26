@@ -436,9 +436,14 @@ export default function Dashboard() {
                           {home.sqft  && <div className="card-stat"><span className="card-stat-val">{home.sqft.toLocaleString()}</span><span className="card-stat-label">Sqft</span></div>}
                           {home.acres && <div className="card-stat"><span className="card-stat-val">{home.acres}</span><span className="card-stat-label">Acres</span></div>}
                         </div>
-                        {home.url && (
-                          <div className="card-source-row">
-                            <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>
+                        {(home.url || home.mls_number) && (
+                          <div className="card-source-row" style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
+                            {home.url && (
+                              <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>
+                            )}
+                            {home.mls_number && (
+                              <span style={{fontSize:'11px',color:'var(--text-muted)'}}>MLS# {home.mls_number}</span>
+                            )}
                           </div>
                         )}
                       </div>

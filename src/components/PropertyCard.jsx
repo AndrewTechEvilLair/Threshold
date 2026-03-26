@@ -121,12 +121,17 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
             </div>
           )}
 
-          {/* Source link */}
-          {home.url && (
-            <div className="card-source-row">
-              <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">
-                {'View on ' + (home.source_site || 'listing') + ' →'}
-              </a>
+          {/* Source link + MLS */}
+          {(home.url || home.mls_number) && (
+            <div className="card-source-row" style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
+              {home.url && (
+                <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">
+                  {'View on ' + (home.source_site || 'listing') + ' →'}
+                </a>
+              )}
+              {home.mls_number && (
+                <span style={{fontSize:'11px',color:'var(--text-muted)'}}>MLS# {home.mls_number}</span>
+              )}
             </div>
           )}
 
