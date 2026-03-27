@@ -31,9 +31,28 @@ export default function Dashboard() {
 
   async function initList() {
     setLoading(true)
-
     console.log('=== initList start, user.id:', user.id)
 
+    // Check for accepted invite FIRST — collaborators should always land in the shared list
+    const { data: invites, error: inviteError } = await supabase
+      .from('invites')
+      .select('list_id')
+      .eq('accepted_by', user.id)
+      .limit(1)
+
+    console.log('invites:', invites, 'inviteError:', inviteError)
+
+    const invite = invites?.[0]
+    if (invite) {
+      console.log('found invite, loading list:', invite.list_id)
+      setListId(invite.list_id)
+      await loadHomes(invite.list_id)
+      await loadPartner(invite.list_id)
+      setLoading(false)
+      return
+    }
+
+    // Then check for owned list
     let { data: owned, error: ownedError } = await supabase
       .from('lists')
       .select('id')
@@ -51,27 +70,8 @@ export default function Dashboard() {
       return
     }
 
-    const { data: invites, error: inviteError } = await supabase
-      .from('invites')
-      .select('list_id')
-      .eq('accepted_by', user.id)
-      .limit(1)
-
-    console.log('invites:', invites, 'inviteError:', inviteError)
-
-    const invite = invites?.[0]
-
-    if (invite) {
-      console.log('found invite, loading list:', invite.list_id)
-      setListId(invite.list_id)
-      await loadHomes(invite.list_id)
-      await loadPartner(invite.list_id)
-      setLoading(false)
-      return
-    }
-
-    console.log('no invite found, creating new list')
-
+    // Last resort — create a new list
+    console.log('no list found, creating new one')
     const { data: created } = await supabase
       .from('lists')
       .insert({ owner_id: user.id, name: 'My Home List' })
