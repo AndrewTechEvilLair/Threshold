@@ -51,8 +51,9 @@ function AppContent() {
 
     console.log('Update error:', updateError)
 
-    // Clean the URL
+    // Clean the URL and reload so Dashboard picks up the accepted invite
     window.history.replaceState({}, '', window.location.pathname)
+    window.location.reload()
   }
 
   if (loading) return <div className="loading-screen">Loading...</div>
@@ -66,4 +67,3 @@ export default function App() {
       <AppContent />
     </AuthProvider>
   )
-}
