@@ -32,12 +32,16 @@ export default function Dashboard() {
   async function initList() {
     setLoading(true)
 
-    let { data: owned } = await supabase
+    console.log('=== initList start, user.id:', user.id)
+
+    let { data: owned, error: ownedError } = await supabase
       .from('lists')
       .select('id')
       .eq('owner_id', user.id)
       .limit(1)
       .single()
+
+    console.log('owned list:', owned, 'error:', ownedError)
 
     if (owned) {
       setListId(owned.id)
@@ -47,21 +51,26 @@ export default function Dashboard() {
       return
     }
 
-    const { data: invites } = await supabase
+    const { data: invites, error: inviteError } = await supabase
       .from('invites')
       .select('list_id')
       .eq('accepted_by', user.id)
       .limit(1)
 
+    console.log('invites:', invites, 'inviteError:', inviteError)
+
     const invite = invites?.[0]
 
     if (invite) {
+      console.log('found invite, loading list:', invite.list_id)
       setListId(invite.list_id)
       await loadHomes(invite.list_id)
       await loadPartner(invite.list_id)
       setLoading(false)
       return
     }
+
+    console.log('no invite found, creating new list')
 
     const { data: created } = await supabase
       .from('lists')
@@ -216,9 +225,10 @@ export default function Dashboard() {
     await supabase.from('homes').delete().eq('id', homeId)
     setHomes(prev => prev.filter(h => h.id !== homeId))
   }
+
   function handlePhotoUpdate(homeId, photoUrl) {
-  setHomes(prev => prev.map(h => h.id === homeId ? { ...h, photo_url: photoUrl } : h))
-}
+    setHomes(prev => prev.map(h => h.id === homeId ? { ...h, photo_url: photoUrl } : h))
+  }
 
   function handleDragStart(index) { dragItem.current = index }
   function handleDragEnter(index) { dragOver.current = index }
@@ -230,7 +240,6 @@ export default function Dashboard() {
     dragOver.current = null
     setHomes(updated)
     saveRankings(updated)
-    // Update rankings map so combined tab recalculates immediately
     const newRankings = {}
     updated.forEach((home, i) => { newRankings[home.id] = i + 1 })
     setRankings(newRankings)
@@ -244,7 +253,6 @@ export default function Dashboard() {
 
   const handleSignOut = async () => { await supabase.auth.signOut() }
 
-  // Combined score — neutral sort by id so result is identical for both users
   const combinedHomes = [...homes]
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((home, _, arr) => {
@@ -369,16 +377,16 @@ export default function Dashboard() {
                   onMouseUp={(e) => { e.currentTarget.draggable = true }}
                 >
                   <PropertyCard
-  home={home}
-  rank={index + 1}
-  intensity={ratings[home.id] ?? 50}
-  onIntensityChange={(val) => saveRating(home.id, val)}
-  onDelete={deleteHome}
-  onNoteSave={saveNote}
-  onPhotoUpdate={handlePhotoUpdate}
-  isHighlighted={highlightedId === home.id}
-  cardRef={el => cardRefs.current[home.id] = el}
-/>
+                    home={home}
+                    rank={index + 1}
+                    intensity={ratings[home.id] ?? 50}
+                    onIntensityChange={(val) => saveRating(home.id, val)}
+                    onDelete={deleteHome}
+                    onNoteSave={saveNote}
+                    onPhotoUpdate={handlePhotoUpdate}
+                    isHighlighted={highlightedId === home.id}
+                    cardRef={el => cardRefs.current[home.id] = el}
+                  />
                 </div>
               ))
             )}
@@ -408,7 +416,6 @@ export default function Dashboard() {
 
                 return (
                   <div key={home.id} className="card">
-                    {/* Main row: rank | photo | info | score */}
                     <div className="card-main">
 
                       <div className="card-rank-col">
@@ -460,7 +467,6 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* People + notes — each person's note under their own slider */}
                     <div className="card-body" style={{gap:'12px'}}>
                       <div className="combined-people">
                         <div className="combined-person">
