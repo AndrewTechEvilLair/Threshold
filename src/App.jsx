@@ -7,14 +7,23 @@ import { supabase } from './lib/supabase'
 function AppContent() {
   const { user, loading } = useAuth()
 
+  // Save invite token immediately on page load, before auth wipes the URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const inviteToken = params.get('invite')
+    if (inviteToken) {
+      sessionStorage.setItem('pendingInvite', inviteToken)
+    }
+  }, [])
+
+  // After login, check for a pending invite and accept it
   useEffect(() => {
     if (!user || loading) return
 
-    const params = new URLSearchParams(window.location.search)
-    const inviteToken = params.get('invite')
-
-    if (inviteToken) {
-      acceptInvite(inviteToken, user)
+    const token = sessionStorage.getItem('pendingInvite')
+    if (token) {
+      sessionStorage.removeItem('pendingInvite')
+      acceptInvite(token, user)
     }
   }, [user, loading])
 
