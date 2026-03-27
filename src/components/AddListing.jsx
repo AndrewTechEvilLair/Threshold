@@ -4,11 +4,56 @@ import { useAuth } from '../context/AuthContext'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
-async function fetchListingData(url) {
-  const prompt = `Look up this real estate listing and return ONLY raw JSON, no markdown:
-URL: ${url}
+// Extract a human-readable address hint from listing URL slugs
+function extractAddressFromUrl(url) {
+  try {
+    const path = new URL(url).pathname
 
-Search for the property, then search Zillow/Redfin for a photo CDN URL. Return this exact shape:
+    // Homes.com: /property/3-beth-haven-church-rd-denver-nc/id/
+    let m = path.match(/\/property\/([a-z0-9-]+)\//)
+    if (m) return slugToAddress(m[1])
+
+    // Zillow: /homedetails/3-Beth-Haven-Church-Rd-Denver-NC-28037/zpid/
+    m = path.match(/\/homedetails\/([^/]+)\//)
+    if (m) return slugToAddress(m[1])
+
+    // Redfin: /NC/Denver/3-Beth-Haven-Church-Rd-28037/home/
+    m = path.match(/\/[A-Z]{2}\/[^/]+\/([^/]+)\/home/)
+    if (m) return slugToAddress(m[1])
+
+    // Realtor: /realestateandhomes-detail/3-Beth-Haven-Church-Rd_Denver_NC_28037/
+    m = path.match(/\/realestateandhomes-detail\/([^/]+)\//)
+    if (m) return slugToAddress(m[1].replace(/_/g, '-'))
+
+    // Trulia: /p/nc/city/address-slug/
+    m = path.match(/\/p\/[a-z]{2}\/[^/]+\/([^/]+)\//)
+    if (m) return slugToAddress(m[1])
+
+  } catch (e) {}
+  return null
+}
+
+function slugToAddress(slug) {
+  // Remove trailing IDs (e.g. zpid numbers, homes.com hash)
+  const cleaned = slug
+    .replace(/-\d{6,}$/, '')   // trailing long numbers
+    .replace(/-[a-z0-9]{8,}$/, '') // trailing hash IDs
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim()
+  return cleaned || null
+}
+
+async function fetchListingData(url) {
+  const addressHint = extractAddressFromUrl(url)
+  const propertyLine = addressHint
+    ? `Property: ${addressHint}\nSource URL: ${url}`
+    : `URL: ${url}`
+
+  const prompt = `Look up this real estate listing and return ONLY raw JSON, no markdown:
+${propertyLine}
+
+Search Zillow/Redfin for this property and a photo CDN URL. Return:
 {"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://photos.zillowstatic.com/... or https://ssl.cdn-redfin.com/...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"zillow|redfin|realtor|homes|trulia","mls_number":""}
 
 Null for unknown fields. Raw JSON only.`
