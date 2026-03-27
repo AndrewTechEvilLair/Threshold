@@ -33,6 +33,9 @@ export default function Dashboard() {
     setLoading(true)
     console.log('=== initList start, user.id:', user.id)
 
+    // Clear the just-accepted flag so it only protects one load
+    sessionStorage.removeItem('justAcceptedInvite')
+
     // Check for accepted invite FIRST — collaborators should always land in the shared list
     const { data: invites, error: inviteError } = await supabase
       .from('invites')
@@ -70,15 +73,19 @@ export default function Dashboard() {
       return
     }
 
-    // Last resort — create a new list
-    console.log('no list found, creating new one')
-    const { data: created } = await supabase
-      .from('lists')
-      .insert({ owner_id: user.id, name: 'My Home List' })
-      .select('id')
-      .single()
-
-    if (created) setListId(created.id)
+    // Only create a new list if we didn't just accept an invite
+    const justAccepted = sessionStorage.getItem('justAcceptedInvite')
+    if (!justAccepted) {
+      console.log('no list found, creating new one')
+      const { data: created } = await supabase
+        .from('lists')
+        .insert({ owner_id: user.id, name: 'My Home List' })
+        .select('id')
+        .single()
+      if (created) setListId(created.id)
+    } else {
+      console.log('just accepted invite, skipping list creation')
+    }
     setLoading(false)
   }
 

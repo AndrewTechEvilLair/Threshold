@@ -52,6 +52,7 @@ function AppContent() {
     console.log('Update error:', updateError)
 
     // Clean the URL and reload so Dashboard picks up the accepted invite
+    sessionStorage.setItem('justAcceptedInvite', 'true')
     window.history.replaceState({}, '', window.location.pathname)
     window.location.reload()
   }
