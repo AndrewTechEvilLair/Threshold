@@ -2,44 +2,20 @@
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
+const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
 async function fetchListingData(url) {
-  const prompt = `Search for this real estate listing and return structured data.
-
+  const prompt = `Look up this real estate listing and return ONLY raw JSON, no markdown:
 URL: ${url}
 
-Steps:
-1. Search for the property using the URL to identify the address
-2. Search for that address on Zillow or Redfin to find a photo URL
-3. Return ONLY this JSON (no markdown, no explanation):
-{
-  "address": "street address only",
-  "city": "City",
-  "state": "ST",
-  "zip": "00000",
-  "price": 000000,
-  "beds": 0,
-  "baths": 0,
-  "sqft": 0,
-  "acres": 0.0,
-  "year_built": 0000,
-  "photo_url": "direct image URL from photos.zillowstatic.com or ssl.cdn-redfin.com",
-  "description": "2-3 sentence description",
-  "highlights": ["up to 4 short feature tags"],
-  "source_site": "zillow | redfin | realtor | homes | trulia",
-  "mls_number": "MLS number as a string e.g. 1327198"
-}
+Search for the property, then search Zillow/Redfin for a photo CDN URL. Return this exact shape:
+{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://photos.zillowstatic.com/... or https://ssl.cdn-redfin.com/...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"zillow|redfin|realtor|homes|trulia","mls_number":""}
 
-For photo_url specifically: search Zillow or Redfin for this address, find a listing photo, and return the direct CDN image URL. These typically look like https://photos.zillowstatic.com/fp/... or https://ssl.cdn-redfin.com/...
-Set any unknown fields to null. Return ONLY the raw JSON.`
+Null for unknown fields. Raw JSON only.`
 
-  const response = await fetch('https://threshold-parser.lordbizness1234.workers.dev/', {
+  const response = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
