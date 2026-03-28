@@ -56,13 +56,13 @@ export default function Dashboard() {
     }
 
     // Then check for owned list
-    let { data: owned, error: ownedError } = await supabase
-      .from('lists')
-      .select('id')
-      .eq('owner_id', user.id)
-      .limit(1)
-      .single()
+let { data: ownedList } = await supabase
+  .from('lists')
+  .select('id')
+  .eq('owner_id', user.id)
+  .limit(1)
 
+const owned = ownedList?.[0]
     console.log('owned list:', owned, 'error:', ownedError)
 
     if (owned) {
