@@ -85,8 +85,12 @@ listing_url must be the full homes.com property URL if found, otherwise null. Nu
   })
 
   if (!response.ok) {
-    const err = await response.json()
-    throw new Error(err?.error?.message || 'Claude API error')
+    let message = `Worker error (${response.status})`
+    try {
+      const err = await response.json()
+      message = err?.error?.message || message
+    } catch {}
+    throw new Error(message)
   }
 
   const data = await response.json()
