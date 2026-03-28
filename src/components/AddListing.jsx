@@ -140,6 +140,18 @@ export default function AddListing({ listId, onAdded }) {
     const phraseInterval = startPhrases()
 
     try {
+      // Check for duplicate before fetching listing data
+      const { data: existing } = await supabase
+        .from('homes')
+        .select('id, address')
+        .eq('list_id', listId)
+        .eq('url', url)
+        .maybeSingle()
+
+      if (existing) {
+        throw new Error(`This listing is already on your list${existing.address ? ` (${existing.address})` : ''}.`)
+      }
+
       const data = await fetchListingData(url)
       const coords = await geocodeAddress(data.address, data.city, data.state, data.zip)
 
