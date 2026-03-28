@@ -63,7 +63,7 @@ let { data: ownedList } = await supabase
   .limit(1)
 
 const owned = ownedList?.[0]
-    console.log('owned list:', owned, 'error:', ownedError)
+    console.log('owned list:', owned)
 
     if (owned) {
       setListId(owned.id)
