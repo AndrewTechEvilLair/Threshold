@@ -11,7 +11,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const [uploading, setUploading] = useState(false)
   const photoRef = useRef(null)
   const fileInputRef = useRef(null)
-  const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
   const formatPrice = (p) => p ? '$' + p.toLocaleString() : 'Price N/A'
 
