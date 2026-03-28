@@ -147,6 +147,8 @@ export default function AddListing({ listId, onAdded }) {
         .eq('list_id', listId)
         .eq('url', url)
         .limit(1)
+          console.log('Duplicate check:', { url, existing, dupError })
+
 
       if (existing && existing.length > 0) {
         throw new Error(`This listing is already on your list${existing[0].address ? ` (${existing[0].address})` : ''}.`)
