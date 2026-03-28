@@ -265,6 +265,22 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
               )}
             </div>
 
+          {/* Mobile up/down buttons */}
+          <div className="card-move-bar">
+            <button className="card-move-bar-btn" onClick={onMoveUp} disabled={isFirst}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 3L2 11h12L8 3z" fill="currentColor"/>
+              </svg>
+              Up
+            </button>
+            <button className="card-move-bar-btn" onClick={onMoveDown} disabled={isLast}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 13L2 5h12L8 13z" fill="currentColor"/>
+              </svg>
+              Down
+            </button>
+          </div>
+
         </div>
 
         {/* Action column */}

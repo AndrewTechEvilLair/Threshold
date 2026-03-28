@@ -647,6 +647,8 @@ body {
 .card:hover .delete-btn { opacity: 1; }
 .delete-btn:hover { color: var(--coral); }
 
+.card-move-bar { display: none; }
+
 .move-btns {
   display: flex;
   flex-direction: column;
@@ -1440,7 +1442,42 @@ body {
 
   .drag-handle { display: none; }
   .delete-btn { opacity: 1; }
-  .move-btns { opacity: 1; }
+  .move-btns { display: none; }
+
+  .card-move-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .card-move-bar-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: var(--surface-up);
+    border: 1px solid var(--border-hi);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-family: "Outfit", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .card-move-bar-btn:active:not(:disabled) {
+    background: var(--coral);
+    color: #fff;
+    border-color: var(--coral);
+  }
+
+  .card-move-bar-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
 
   /* Card body */
   .card-body { padding: 10px 12px 12px; }
