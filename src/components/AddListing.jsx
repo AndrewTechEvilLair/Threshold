@@ -146,10 +146,10 @@ export default function AddListing({ listId, onAdded }) {
         .select('id, address')
         .eq('list_id', listId)
         .eq('url', url)
-        .maybeSingle()
+        .limit(1)
 
-      if (existing) {
-        throw new Error(`This listing is already on your list${existing.address ? ` (${existing.address})` : ''}.`)
+      if (existing && existing.length > 0) {
+        throw new Error(`This listing is already on your list${existing[0].address ? ` (${existing[0].address})` : ''}.`)
       }
 
       const data = await fetchListingData(url)
