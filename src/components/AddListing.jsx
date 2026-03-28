@@ -197,7 +197,7 @@ export default function AddListing({ listId, onAdded }) {
     <div className="add-listing-bar">
       <form onSubmit={handleSubmit} className="add-listing-form">
         <input
-          type="url"
+          type="text"
           placeholder="Paste a Zillow, Redfin, Realtor, Homes.com or Trulia URL..."
           value={url}
           onChange={e => setUrl(e.target.value)}
