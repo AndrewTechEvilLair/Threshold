@@ -10,6 +10,8 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const [pasteActive, setPasteActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const photoRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
 
   const formatPrice = (p) => p ? '$' + p.toLocaleString() : 'Price N/A'
 
@@ -29,10 +31,38 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
     }, 1500)
   }
 
-  // ── Photo paste handler ──
+  // ── Photo handlers ──
   const handlePhotoClick = () => {
-    setPasteActive(true)
-    photoRef.current?.focus()
+    if (isMobile) {
+      fileInputRef.current?.click()
+    } else {
+      setPasteActive(true)
+      photoRef.current?.focus()
+    }
+  }
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    e.target.value = ''
+    setUploading(true)
+    try {
+      const ext = file.type.split('/')[1] || 'png'
+      const fileName = `home-${home.id}-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('home-photos')
+        .upload(fileName, file, { contentType: file.type, upsert: true })
+      if (uploadError) throw new Error(uploadError.message)
+      const { data: urlData } = supabase.storage.from('home-photos').getPublicUrl(fileName)
+      const { error: dbError } = await supabase.from('homes').update({ photo_url: urlData.publicUrl }).eq('id', home.id)
+      if (dbError) throw new Error(dbError.message)
+      setImgError(false)
+      onPhotoUpdate(home.id, urlData.publicUrl)
+    } catch (err) {
+      console.error('Photo upload failed:', err)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handlePaste = async (e) => {
@@ -87,6 +117,12 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(
     [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
   )
+
+  const iceCreamUrl = home.lat && home.lng
+    ? `https://www.google.com/maps/search/ice+cream+shop/@${home.lat},${home.lng},15z`
+    : 'https://www.google.com/maps/search/ice+cream+shop+near+' + encodeURIComponent(
+        [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
+      )
 
   const statItems = [
     home.beds       ? { label: 'Beds',  val: home.beds }                  : null,
@@ -149,7 +185,9 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
     return (
       <div className="card-photo-placeholder">
         <span className="card-photo-initials">{initials}</span>
-        <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', letterSpacing: '0.5px' }}>Click to add photo</span>
+        <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', letterSpacing: '0.5px' }}>
+          {isMobile ? 'Tap to add photo' : 'Click to add photo'}
+        </span>
       </div>
     )
   }
@@ -159,6 +197,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
       className={'card' + (isHighlighted ? ' card-highlighted' : '')}
       ref={cardRef}
     >
+      <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
       {/* ── TOP ROW: rank | photo | info | actions ── */}
       <div className="card-main">
 
@@ -177,7 +216,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           onPaste={handlePaste}
           onBlur={() => setPasteActive(false)}
           onKeyDown={e => { if (e.key === 'Escape') setPasteActive(false) }}
-          title={showPhoto ? 'Click to replace photo' : 'Click then Ctrl+V to add photo'}
+          title={showPhoto ? 'Click to replace photo' : isMobile ? 'Tap to add photo' : 'Click then Ctrl+V to add photo'}
           style={{ cursor: uploading ? 'wait' : 'pointer', outline: pasteActive ? '2px solid var(--accent)' : 'none' }}
         >
           {renderCardImage()}
@@ -212,18 +251,19 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           )}
 
           {/* Source link + MLS */}
-          {(home.url || home.mls_number) && (
-            <div className="card-source-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div className="card-source-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               {home.url && (
                 <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">
                   {'View on ' + (home.source_site || 'listing') + ' →'}
                 </a>
               )}
+              <a href={iceCreamUrl} target="_blank" rel="noreferrer" className="card-source-link">
+                🍦 Nearest Ice Cream
+              </a>
               {home.mls_number && (
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MLS# {home.mls_number}</span>
               )}
             </div>
-          )}
 
         </div>
 

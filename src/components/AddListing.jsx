@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -44,19 +44,34 @@ function slugToAddress(slug) {
   return cleaned || null
 }
 
-async function fetchListingData(url) {
-  const addressHint = extractAddressFromUrl(url)
-  const propertyLine = addressHint
-    ? `Property: ${addressHint}\nSource URL: ${url}`
-    : `URL: ${url}`
+function isUrl(input) {
+  try { new URL(input); return true } catch { return false }
+}
 
-  const prompt = `Look up this real estate listing and return ONLY raw JSON, no markdown:
+async function fetchListingData(input) {
+  let prompt
+
+  if (isUrl(input)) {
+    const addressHint = extractAddressFromUrl(input)
+    const propertyLine = addressHint
+      ? `Property: ${addressHint}\nSource URL: ${input}`
+      : `URL: ${input}`
+    prompt = `Look up this real estate listing and return ONLY raw JSON, no markdown:
 ${propertyLine}
 
-Search Zillow/Redfin for this property and a photo CDN URL. Return:
-{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://photos.zillowstatic.com/... or https://ssl.cdn-redfin.com/...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"zillow|redfin|realtor|homes|trulia","mls_number":""}
+Search for this property and a photo CDN URL. Return:
+{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"zillow|redfin|realtor|homes|trulia","mls_number":"","listing_url":null}
 
-Null for unknown fields. Raw JSON only.`
+listing_url must be null when a source URL was already provided. Null for unknown fields. Raw JSON only.`
+  } else {
+    prompt = `Search homes.com for this address and return ONLY raw JSON, no markdown:
+Address: ${input}
+
+Find the listing on homes.com. Return:
+{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"homes","mls_number":"","listing_url":"https://www.homes.com/property/..."}
+
+listing_url must be the full homes.com property URL if found, otherwise null. Null for unknown fields. Raw JSON only.`
+  }
 
   const response = await fetch(WORKER_URL, {
     method: 'POST',
@@ -106,6 +121,22 @@ async function geocodeAddress(address, city, state, zip) {
   return null
 }
 
+const TOKEN_ERROR_PHRASES = [
+  "Claude stepped out for coffee. Briefly.",
+  "The AI is momentarily house-hunting for itself.",
+  "Our listing genie needs a quick recharge.",
+  "Even robots need a snack break.",
+  "The scout is catching their breath.",
+  "Too many houses, not enough horsepower. One moment.",
+]
+
+function isTokenError(message) {
+  const m = (message || '').toLowerCase()
+  return m.includes('rate') || m.includes('limit') || m.includes('overload') ||
+    m.includes('capacity') || m.includes('token') || m.includes('quota') ||
+    m.includes('529') || m.includes('429')
+}
+
 const LOADING_PHRASES = [
   'Bribing Zillow for intel...',
   'Asking the neighbors...',
@@ -125,6 +156,20 @@ export default function AddListing({ listId, onAdded }) {
   const [loading, setLoading] = useState(false)
   const [phrase, setPhrase] = useState('')
   const [error, setError] = useState(null)
+  const [tokenPhrase, setTokenPhrase] = useState(null)
+  const [countdown, setCountdown] = useState(0)
+  const countdownRef = useRef(null)
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(countdownRef.current); setTokenPhrase(null); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(countdownRef.current)
+  }, [countdown])
 
   const startPhrases = () => {
     const pick = () => LOADING_PHRASES[Math.floor(Math.random() * LOADING_PHRASES.length)]
@@ -140,19 +185,37 @@ export default function AddListing({ listId, onAdded }) {
     const phraseInterval = startPhrases()
 
     try {
-      // Check for duplicate before fetching listing data
-      const { data: existing } = await supabase
-        .from('homes')
-        .select('id, address')
-        .eq('list_id', listId)
-        .eq('url', url)
-        .limit(1)
+      const urlInput = isUrl(url)
 
-      if (existing && existing.length > 0) {
-        throw new Error(`This listing is already on your list${existing[0].address ? ` (${existing[0].address})` : ''}.`)
+      // For URL inputs, check duplicate before hitting the API
+      if (urlInput) {
+        const { data: existing } = await supabase
+          .from('homes')
+          .select('id, address')
+          .eq('list_id', listId)
+          .eq('url', url)
+          .limit(1)
+        if (existing && existing.length > 0) {
+          throw new Error(`This listing is already on your list${existing[0].address ? ` (${existing[0].address})` : ''}.`)
+        }
       }
 
       const data = await fetchListingData(url)
+      const resolvedUrl = (!urlInput && data.listing_url) ? data.listing_url : url
+
+      // For address inputs, check duplicate against the resolved homes.com URL
+      if (!urlInput && resolvedUrl !== url) {
+        const { data: existing } = await supabase
+          .from('homes')
+          .select('id, address')
+          .eq('list_id', listId)
+          .eq('url', resolvedUrl)
+          .limit(1)
+        if (existing && existing.length > 0) {
+          throw new Error(`This listing is already on your list${existing[0].address ? ` (${existing[0].address})` : ''}.`)
+        }
+      }
+
       const coords = await geocodeAddress(data.address, data.city, data.state, data.zip)
 
       const { error: dbError } = await supabase
@@ -160,7 +223,7 @@ export default function AddListing({ listId, onAdded }) {
         .insert({
           list_id: listId,
           added_by: user.id,
-          url: url,
+          url: resolvedUrl,
           address: data.address || url,
           city: data.city,
           state: data.state,
@@ -185,7 +248,12 @@ export default function AddListing({ listId, onAdded }) {
       setUrl('')
       onAdded()
     } catch (err) {
-      setError(err.message)
+      if (isTokenError(err.message)) {
+        setTokenPhrase(TOKEN_ERROR_PHRASES[Math.floor(Math.random() * TOKEN_ERROR_PHRASES.length)])
+        setCountdown(30)
+      } else {
+        setError(err.message)
+      }
     }
 
     clearInterval(phraseInterval)
@@ -198,18 +266,24 @@ export default function AddListing({ listId, onAdded }) {
       <form onSubmit={handleSubmit} className="add-listing-form">
         <input
           type="text"
-          placeholder="Paste a Zillow, Redfin, Realtor, Homes.com or Trulia URL..."
+          placeholder="Paste a listing URL or enter an address..."
           value={url}
           onChange={e => setUrl(e.target.value)}
           required
           className="listing-url-input"
         />
-        <button type="submit" className="btn-add-submit" disabled={loading || !url}>
-          {loading ? 'Fetching...' : 'Add'}
+        <button type="submit" className="btn-add-submit" disabled={loading || !url || countdown > 0}>
+          {loading ? 'Fetching...' : countdown > 0 ? `Wait ${countdown}s` : 'Add'}
         </button>
       </form>
       {loading && phrase && (
         <p className="add-loading-phrase">{phrase}</p>
+      )}
+      {tokenPhrase && (
+        <div className="add-token-error">
+          <p className="add-token-phrase">{tokenPhrase}</p>
+          <p className="add-token-retry">Try again in {countdown}s</p>
+        </div>
       )}
       {error && <p className="add-error">{error}</p>}
     </div>

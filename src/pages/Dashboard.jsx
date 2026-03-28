@@ -24,6 +24,7 @@ export default function Dashboard() {
   const dragOver = useRef(null)
   const cardRefs = useRef({})
   const [partnerNotesMap, setPartnerNotesMap] = useState({})
+  const [stateFilter, setStateFilter] = useState([])
 
   useEffect(() => {
     if (user?.id) initList()
@@ -236,7 +237,9 @@ const owned = ownedList?.[0]
   }
 
   function handlePhotoUpdate(homeId, photoUrl) {
-    setHomes(prev => prev.map(h => h.id === homeId ? { ...h, photo_url: photoUrl } : h))
+    const updater = prev => prev.map(h => h.id === homeId ? { ...h, photo_url: photoUrl } : h)
+    setHomes(updater)
+    setPartnerHomes(updater)
   }
 
   function handleDragStart(index) { dragItem.current = index }
@@ -286,6 +289,101 @@ const owned = ownedList?.[0]
       }
     }).sort((a, b) => b.score - a.score)
 
+  function openPrintView() {
+    const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    const rows = combinedHomes.map((home, i) => {
+      const stats = [
+        home.beds       ? `${home.beds} bd`           : null,
+        home.baths      ? `${home.baths} ba`           : null,
+        home.sqft       ? `${home.sqft.toLocaleString()} sqft` : null,
+        home.acres      ? `${home.acres} acres`        : null,
+        home.year_built ? `Built ${home.year_built}`   : null,
+      ].filter(Boolean).join('  ·  ')
+
+      const location = [home.city, home.state, home.zip].filter(Boolean).join(', ')
+      const price = home.price ? '$' + home.price.toLocaleString() : 'Price N/A'
+      const photo = home.photo_url
+        ? `<img src="${home.photo_url}" alt="${home.address}" />`
+        : `<div class="no-photo">${(home.city || '?')[0]}</div>`
+
+      return `
+        <div class="home-card">
+          <div class="home-rank">#${i + 1}</div>
+          <div class="home-photo">${photo}</div>
+          <div class="home-info">
+            <div class="home-address">${home.address}</div>
+            <div class="home-location">${location}</div>
+            <div class="home-price">${price}</div>
+            ${stats ? `<div class="home-stats">${stats}</div>` : ''}
+            ${home.url ? `<div class="home-link"><a href="${home.url}" target="_blank">${home.source_site ? 'View on ' + home.source_site : 'View listing'} →</a></div>` : ''}
+          </div>
+          <div class="home-score">
+            <div class="score-val">${Math.max(0, home.score)}</div>
+            <div class="score-label">score</div>
+          </div>
+        </div>`
+    }).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Home Shortlist · ${date}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; background: #fff; color: #111; padding: 40px; max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 6px; }
+  .meta { font-size: 12px; color: #999; margin-bottom: 36px; border-bottom: 1px solid #ddd; padding-bottom: 16px; }
+  .home-card {
+    display: flex; align-items: flex-start; gap: 20px;
+    padding: 20px 0; border-bottom: 1px solid #eee;
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  .home-rank { font-size: 22px; font-weight: 700; color: #ccc; width: 36px; flex-shrink: 0; padding-top: 4px; text-align: right; }
+  .home-photo { width: 140px; height: 100px; flex-shrink: 0; border-radius: 6px; overflow: hidden; background: #f0f0f0; }
+  .home-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .no-photo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 32px; color: #ccc; font-family: sans-serif; }
+  .home-info { flex: 1; }
+  .home-address { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .home-location { font-size: 13px; color: #666; margin-bottom: 8px; }
+  .home-price { font-size: 18px; font-weight: 700; color: #e8442a; margin-bottom: 6px; }
+  .home-stats { font-size: 12px; color: #555; margin-bottom: 6px; }
+  .home-link a { font-size: 12px; color: #888; text-decoration: none; }
+  .home-score { text-align: center; flex-shrink: 0; width: 60px; }
+  .score-val { font-size: 26px; font-weight: 700; color: #e8442a; line-height: 1; }
+  .score-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; margin-top: 2px; }
+  @media print {
+    body { padding: 20px; }
+    .home-card { page-break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+  <h1>Threshold</h1>
+  <div class="subtitle">Home Shortlist · ${homes.length} properties</div>
+  <div class="meta">Prepared ${date}${user?.email ? ' · ' + user.email : ''}</div>
+  ${rows}
+</body>
+</html>`
+
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+  }
+
+  const stateChips = [...new Set(combinedHomes.map(h => h.state).filter(Boolean))].sort()
+    .map(state => ({ state, count: combinedHomes.filter(h => h.state === state).length }))
+
+  function toggleStateFilter(state) {
+    setStateFilter(prev => prev.includes(state) ? prev.filter(s => s !== state) : [...prev, state])
+  }
+
+  const filteredCombined = stateFilter.length === 0
+    ? combinedHomes
+    : combinedHomes.filter(h => stateFilter.includes(h.state))
+
   if (loading) return <div className="loading-screen">Loading your list...</div>
 
   return (
@@ -298,6 +396,9 @@ const owned = ownedList?.[0]
             <button className="btn-invite" onClick={() => setShowInvite(true)}>
               + Partner
             </button>
+          )}
+          {homes.length > 0 && (
+            <button className="btn-export" onClick={openPrintView}>Export</button>
           )}
           <button className="btn-signout" onClick={handleSignOut}>Sign out</button>
           <button className="btn-add" onClick={() => setShowAdd(true)}>+ Add</button>
@@ -352,11 +453,14 @@ const owned = ownedList?.[0]
                   onDragOver={e => e.preventDefault()}
                 >
                   <div className="thumb-rank">{'#' + (index + 1)}</div>
-                  <div className="thumb-img">
-                    {home.photo_url
-                      ? <img src={home.photo_url} alt={home.address} />
-                      : <div className="thumb-placeholder" />
-                    }
+                  <div className="thumb-preview">
+                    <div className="thumb-preview-img">
+                      {home.photo_url
+                        ? <img src={home.photo_url} alt={home.address} />
+                        : <div className="thumb-preview-placeholder" />
+                      }
+                    </div>
+                    <div className="thumb-preview-addr">{home.address}</div>
                   </div>
                 </div>
               ))}
@@ -407,11 +511,24 @@ const owned = ownedList?.[0]
       {/* COMBINED TAB */}
       {activeTab === 'combined' && (
         <div className="dashboard-body">
+          {stateChips.length > 1 && (
+            <div className="state-filter-row">
+              {stateChips.map(({ state, count }) => (
+                <button
+                  key={state}
+                  className={`state-chip${stateFilter.includes(state) ? ' active' : ''}`}
+                  onClick={() => toggleStateFilter(state)}
+                >
+                  {state} <span className="state-chip-count">({count})</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="card-list">
-            {combinedHomes.length === 0 ? (
+            {filteredCombined.length === 0 ? (
               <div className="empty-state"><p>No homes yet.</p></div>
             ) : (
-              combinedHomes.map((home, index) => {
+              filteredCombined.map((home, index) => {
                 const intensityEmoji = (val) => {
                   if (val < 25) return '😬'
                   if (val < 50) return '🤔'
@@ -560,18 +677,18 @@ const owned = ownedList?.[0]
 
           <div className="analytics-row">
             <div className="an-card">
-              <div className="an-card-title">Intensity</div>
+              <div className="an-card-title">Intensity · top 8</div>
               <div className="an-bubbles">
-                {[...homes].sort((a, b) => (ratings[b.id] ?? 50) - (ratings[a.id] ?? 50)).map(home => {
+                {[...homes].sort((a, b) => (ratings[b.id] ?? 50) - (ratings[a.id] ?? 50)).slice(0, 8).map(home => {
                   const intensity = ratings[home.id] ?? 50
-                  const size = Math.round(30 + (intensity / 100) * 70)
+                  const size = Math.round(32 + (intensity / 100) * 60)
                   const opacity = 0.4 + (intensity / 100) * 0.6
                   return (
                     <div key={home.id} className="an-bubble-col">
                       <div className="an-bubble" style={{ width: size, height: size, background: `rgba(255,96,64,${opacity})`, fontSize: size > 55 ? 13 : 11 }}>
                         {intensity}%
                       </div>
-                      <div className="an-bubble-label">{home.address?.split(' ').slice(0,3).join(' ')}</div>
+                      <div className="an-bubble-label">{home.address?.split(' ').slice(0,2).join(' ')}</div>
                     </div>
                   )
                 })}
@@ -648,9 +765,13 @@ const owned = ownedList?.[0]
                   <span className="an-stat-label">Newest built</span>
                   <span className="an-stat-val">{homes.filter(h=>h.year_built).length > 0 ? Math.max(...homes.filter(h=>h.year_built).map(h=>h.year_built)) : '—'}</span>
                 </div>
-                <div className="an-stat-row">
+                <div className="an-stat-row an-stat-row-sources">
                   <span className="an-stat-label">Sources</span>
-                  <span className="an-stat-val">{[...new Set(homes.map(h => h.source_site).filter(Boolean))].join(', ') || '—'}</span>
+                  <div className="an-source-chips">
+                    {[...new Set(homes.map(h => h.source_site).filter(Boolean))].map(s => (
+                      <span key={s} className="an-source-chip">{s}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
