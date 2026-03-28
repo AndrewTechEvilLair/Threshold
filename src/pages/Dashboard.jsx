@@ -139,11 +139,13 @@ const owned = ownedList?.[0]
     const listId_ = lid || listId
     if (!listId_) return
 
-    const { data: listData } = await supabase
+    const { data: listDataArr } = await supabase
       .from('lists')
       .select('owner_id')
       .eq('id', listId_)
-      .single()
+      .limit(1)
+
+    const listData = listDataArr?.[0]
 
     const { data: invites } = await supabase
       .from('invites')
