@@ -132,9 +132,9 @@ const TOKEN_ERROR_PHRASES = [
 
 function isTokenError(message) {
   const m = (message || '').toLowerCase()
-  return m.includes('rate') || m.includes('limit') || m.includes('overload') ||
-    m.includes('capacity') || m.includes('token') || m.includes('quota') ||
-    m.includes('529') || m.includes('429')
+  return m.includes('rate limit') || m.includes('rate_limit') ||
+    m.includes('overloaded') || m.includes('too many requests') ||
+    m.includes('quota exceeded') || m.includes('529')
 }
 
 const LOADING_PHRASES = [

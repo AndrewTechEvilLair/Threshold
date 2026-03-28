@@ -1,7 +1,7 @@
 ﻿import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, onPhotoUpdate, isHighlighted, cardRef }) {
+export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, onPhotoUpdate, isHighlighted, cardRef, onMoveUp, onMoveDown, isFirst, isLast }) {
   const [note, setNote] = useState(home.user_note || '')
   const [noteExpanded, setNoteExpanded] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
@@ -278,6 +278,18 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
               <circle cx="4"  cy="11" r="1.4" fill="currentColor"/>
               <circle cx="10" cy="11" r="1.4" fill="currentColor"/>
             </svg>
+          </div>
+          <div className="move-btns">
+            <button className="move-btn" onClick={onMoveUp} disabled={isFirst} title="Move up">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 2L1 7h8L5 2z" fill="currentColor"/>
+              </svg>
+            </button>
+            <button className="move-btn" onClick={onMoveDown} disabled={isLast} title="Move down">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 8L1 3h8L5 8z" fill="currentColor"/>
+              </svg>
+            </button>
           </div>
           <button
             className="delete-btn"

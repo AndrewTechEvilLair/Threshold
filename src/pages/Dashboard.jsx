@@ -242,6 +242,18 @@ const owned = ownedList?.[0]
     setPartnerHomes(updater)
   }
 
+  function handleMove(index, direction) {
+    const updated = [...homes]
+    const target = index + direction
+    if (target < 0 || target >= updated.length) return
+    ;[updated[index], updated[target]] = [updated[target], updated[index]]
+    setHomes(updated)
+    saveRankings(updated)
+    const newRankings = {}
+    updated.forEach((h, i) => { newRankings[h.id] = i + 1 })
+    setRankings(newRankings)
+  }
+
   function handleDragStart(index) { dragItem.current = index }
   function handleDragEnter(index) { dragOver.current = index }
   function handleDragEnd() {
@@ -306,6 +318,33 @@ const owned = ownedList?.[0]
         ? `<img src="${home.photo_url}" alt="${home.address}" />`
         : `<div class="no-photo">${(home.city || '?')[0]}</div>`
 
+      const myLabel = user?.email?.split('@')[0] || 'Me'
+      const partnerLabel = partner?.email?.split('@')[0] || 'Partner'
+
+      const peopleRows = `
+        <div class="people-row">
+          <div class="person-block">
+            <div class="person-label">${myLabel}</div>
+            <div class="person-rank">Rank #${home.myRank}</div>
+            <div class="person-intensity">
+              <div class="intensity-bar-bg"><div class="intensity-bar" style="width:${home.myIntensity}%"></div></div>
+              <span class="intensity-pct">${home.myIntensity}%</span>
+            </div>
+            ${home.user_note ? `<div class="person-note">"${home.user_note}"</div>` : ''}
+          </div>
+          ${partner ? `
+          <div class="person-divider"></div>
+          <div class="person-block">
+            <div class="person-label">${partnerLabel}</div>
+            <div class="person-rank">Rank #${home.partnerRank}</div>
+            <div class="person-intensity">
+              <div class="intensity-bar-bg"><div class="intensity-bar partner" style="width:${home.partnerIntensity}%"></div></div>
+              <span class="intensity-pct">${home.partnerIntensity}%</span>
+            </div>
+            ${home.partner_note ? `<div class="person-note">"${home.partner_note}"</div>` : ''}
+          </div>` : ''}
+        </div>`
+
       return `
         <div class="home-card">
           <div class="home-rank">#${i + 1}</div>
@@ -316,6 +355,7 @@ const owned = ownedList?.[0]
             <div class="home-price">${price}</div>
             ${stats ? `<div class="home-stats">${stats}</div>` : ''}
             ${home.url ? `<div class="home-link"><a href="${home.url}" target="_blank">${home.source_site ? 'View on ' + home.source_site : 'View listing'} →</a></div>` : ''}
+            ${peopleRows}
           </div>
           <div class="home-score">
             <div class="score-val">${Math.max(0, home.score)}</div>
@@ -353,6 +393,17 @@ const owned = ownedList?.[0]
   .home-score { text-align: center; flex-shrink: 0; width: 60px; }
   .score-val { font-size: 26px; font-weight: 700; color: #e8442a; line-height: 1; }
   .score-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; margin-top: 2px; }
+  .people-row { display: flex; gap: 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+  .person-block { flex: 1; }
+  .person-divider { width: 1px; background: #eee; flex-shrink: 0; }
+  .person-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #aaa; margin-bottom: 3px; }
+  .person-rank { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px; }
+  .person-intensity { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .intensity-bar-bg { flex: 1; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+  .intensity-bar { height: 100%; background: #e8442a; border-radius: 3px; }
+  .intensity-bar.partner { background: #4A9EFF; }
+  .intensity-pct { font-size: 11px; color: #888; min-width: 28px; }
+  .person-note { font-size: 11px; color: #777; font-style: italic; line-height: 1.4; }
   @media print {
     body { padding: 20px; }
     .home-card { page-break-inside: avoid; }
@@ -418,6 +469,19 @@ const owned = ownedList?.[0]
           {activeTab === 'combined' && ' · sorted by combined score'}
           {activeTab === 'analytics' && ' · your list at a glance'}
         </span>
+        {activeTab === 'combined' && stateChips.length > 1 && (
+          <div className="sub-state-chips">
+            {stateChips.map(({ state, count }) => (
+              <button
+                key={state}
+                className={`state-chip${stateFilter.includes(state) ? ' active' : ''}`}
+                onClick={() => toggleStateFilter(state)}
+              >
+                {state} <span className="state-chip-count">({count})</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {showAdd && (
@@ -497,6 +561,10 @@ const owned = ownedList?.[0]
                     onDelete={deleteHome}
                     onNoteSave={saveNote}
                     onPhotoUpdate={handlePhotoUpdate}
+                    onMoveUp={() => handleMove(index, -1)}
+                    onMoveDown={() => handleMove(index, 1)}
+                    isFirst={index === 0}
+                    isLast={index === homes.length - 1}
                     isHighlighted={highlightedId === home.id}
                     cardRef={el => cardRefs.current[home.id] = el}
                   />
@@ -511,19 +579,6 @@ const owned = ownedList?.[0]
       {/* COMBINED TAB */}
       {activeTab === 'combined' && (
         <div className="dashboard-body">
-          {stateChips.length > 1 && (
-            <div className="state-filter-row">
-              {stateChips.map(({ state, count }) => (
-                <button
-                  key={state}
-                  className={`state-chip${stateFilter.includes(state) ? ' active' : ''}`}
-                  onClick={() => toggleStateFilter(state)}
-                >
-                  {state} <span className="state-chip-count">({count})</span>
-                </button>
-              ))}
-            </div>
-          )}
           <div className="card-list">
             {filteredCombined.length === 0 ? (
               <div className="empty-state"><p>No homes yet.</p></div>

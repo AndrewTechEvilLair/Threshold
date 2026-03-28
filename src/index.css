@@ -303,6 +303,8 @@ body {
 .sub-count { font-size: 13px; color: var(--text-secondary); }
 .sub-count strong { color: var(--text-primary); font-weight: 700; }
 
+.sub-state-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
 /* ═══════════════════════════════════════
    LAYOUT
 ═══════════════════════════════════════ */
@@ -644,6 +646,34 @@ body {
 
 .card:hover .delete-btn { opacity: 1; }
 .delete-btn:hover { color: var(--coral); }
+
+.move-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.card:hover .move-btns { opacity: 1; }
+
+.move-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 26px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.move-btn:hover:not(:disabled) { color: var(--text-primary); background: var(--surface-up); }
+.move-btn:disabled { opacity: 0.2; cursor: default; }
 
 /* Body section: intensity + notes */
 .card-body {
@@ -1410,6 +1440,7 @@ body {
 
   .drag-handle { display: none; }
   .delete-btn { opacity: 1; }
+  .move-btns { opacity: 1; }
 
   /* Card body */
   .card-body { padding: 10px 12px 12px; }
