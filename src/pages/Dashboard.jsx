@@ -147,6 +147,7 @@ const owned = ownedList?.[0]
       .limit(1)
 
     const listData = listDataArr?.[0]
+    console.log('[loadPartner] listData:', listData)
 
     const { data: invites } = await supabase
       .from('invites')
@@ -156,7 +157,8 @@ const owned = ownedList?.[0]
       .limit(1)
 
     const invite = invites?.[0] || null
-    if (!invite || !listData) return
+    console.log('[loadPartner] invite:', invite)
+    if (!invite || !listData) { console.warn('[loadPartner] returning early — missing invite or listData'); return }
 
     const ownerId = listData.owner_id
     const collaboratorId = invite.accepted_by
@@ -189,6 +191,7 @@ const owned = ownedList?.[0]
     const notesMap = {}
     partnerNotesData?.forEach(n => { notesMap[n.home_id] = n.body })
 
+    console.log('[loadPartner] notesMap:', notesMap)
     setPartnerRankings(rankMap)
     setPartnerRatings(ratingMap)
     setPartnerNotesMap(notesMap)
