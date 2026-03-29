@@ -1,7 +1,7 @@
 ﻿import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, onPhotoUpdate, isHighlighted, cardRef, onMoveUp, onMoveDown, isFirst, isLast }) {
+export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, onPhotoUpdate, onPriceUpdate, isHighlighted, cardRef, onMoveUp, onMoveDown, isFirst, isLast }) {
   const [note, setNote] = useState(home.user_note || '')
   const [noteExpanded, setNoteExpanded] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
@@ -25,6 +25,8 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const [noteSaving, setNoteSaving] = useState(false)
   const [noteError, setNoteError] = useState(null)
   const [photoUploaded, setPhotoUploaded] = useState(false)
+  const [priceEditing, setPriceEditing] = useState(false)
+  const [priceValue, setPriceValue] = useState(home.price ? String(home.price) : '')
 
   const handleNoteSave = async () => {
     setNoteSaving(true)
@@ -258,7 +260,27 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
                 {[home.city, home.state, home.zip].filter(Boolean).join(', ')}
               </div>
             </div>
-            <div className="card-price">{formatPrice(home.price)}</div>
+            {priceEditing ? (
+              <input
+                className="card-price-input"
+                type="number"
+                value={priceValue}
+                onChange={e => setPriceValue(e.target.value)}
+                onBlur={async () => {
+                  setPriceEditing(false)
+                  await onPriceUpdate(home.id, priceValue)
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') e.target.blur()
+                  if (e.key === 'Escape') { setPriceEditing(false); setPriceValue(home.price ? String(home.price) : '') }
+                }}
+                autoFocus
+              />
+            ) : (
+              <div className="card-price" title="Click to edit price" onClick={() => setPriceEditing(true)} style={{ cursor: 'pointer' }}>
+                {formatPrice(home.price)}
+              </div>
+            )}
           </div>
 
           {/* Stats */}

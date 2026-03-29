@@ -244,6 +244,13 @@ const owned = ownedList?.[0]
     setPartnerHomes(updater)
   }
 
+  async function handlePriceUpdate(homeId, newPrice) {
+    const price = newPrice === '' ? null : Number(newPrice)
+    const { error } = await supabase.from('homes').update({ price }).eq('id', homeId)
+    if (error) throw new Error(error.message)
+    setHomes(prev => prev.map(h => h.id === homeId ? { ...h, price } : h))
+  }
+
   function handleMove(index, direction) {
     const updated = [...homes]
     const target = index + direction
@@ -273,7 +280,9 @@ const owned = ownedList?.[0]
 
   function handleThumbnailClick(homeId) {
     setHighlightedId(homeId)
-    cardRefs.current[homeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTimeout(() => {
+      cardRefs.current[homeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
     setTimeout(() => setHighlightedId(null), 2000)
   }
 
@@ -582,6 +591,7 @@ const owned = ownedList?.[0]
                     onDelete={deleteHome}
                     onNoteSave={saveNote}
                     onPhotoUpdate={handlePhotoUpdate}
+                    onPriceUpdate={handlePriceUpdate}
                     onMoveUp={() => handleMove(index, -1)}
                     onMoveDown={() => handleMove(index, 1)}
                     isFirst={index === 0}
