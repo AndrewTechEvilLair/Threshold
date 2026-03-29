@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
 import AddListing from '../components/AddListing'
 import InviteModal from '../components/InviteModal'
+import HomeMap from '../components/HomeMap'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const [partnerNotesMap, setPartnerNotesMap] = useState({})
   const [stateFilter, setStateFilter] = useState([])
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [mapActiveId, setMapActiveId] = useState(null)
 
   useEffect(() => {
     if (user?.id) initList()
@@ -277,6 +279,20 @@ const owned = ownedList?.[0]
     updated.forEach((home, i) => { newRankings[home.id] = i + 1 })
     setRankings(newRankings)
   }
+
+  useEffect(() => {
+    if (activeTab !== 'mine') return
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) setMapActiveId(entry.target.dataset.homeId)
+      })
+    }, { threshold: 0.5 })
+    homes.forEach(home => {
+      const el = cardRefs.current[home.id]
+      if (el) { el.dataset.homeId = home.id; observer.observe(el) }
+    })
+    return () => observer.disconnect()
+  }, [homes, activeTab])
 
   function handleThumbnailClick(homeId) {
     setHighlightedId(homeId)
@@ -645,6 +661,15 @@ const owned = ownedList?.[0]
             )}
             <div className="card-list-spacer" />
           </div>
+          {homes.some(h => h.lat && h.lng) && (
+            <div className="map-panel">
+              <HomeMap
+                homes={homes}
+                activeId={mapActiveId}
+                onHomeClick={handleThumbnailClick}
+              />
+            </div>
+          )}
         </div>
       )}
 

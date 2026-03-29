@@ -314,6 +314,49 @@ body {
   align-items: flex-start;
 }
 
+.map-panel {
+  flex: 1;
+  position: sticky;
+  top: 148px;
+  height: calc(100vh - 148px);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.home-map {
+  width: 100%;
+  height: 100%;
+}
+
+.map-pin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-hi);
+  border: 2px solid var(--border-hi);
+  color: var(--text-muted);
+  font-family: "Syne", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.map-pin-active {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: #fff;
+  transform: scale(1.35);
+  box-shadow: 0 0 14px rgba(255,96,64,0.55);
+}
+
+@media (max-width: 900px) {
+  .map-panel { display: none; }
+}
+
 .card-list {
   padding: 16px 24px 0;
   max-width: 680px;
