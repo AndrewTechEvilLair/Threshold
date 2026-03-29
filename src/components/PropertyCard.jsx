@@ -22,13 +22,24 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
     return '😍 Packing Bags'
   }
 
-  const handleNoteSave = () => {
-    onNoteSave(home.id, note)
-    setNoteSaved(true)
-    setTimeout(() => {
-      setNoteSaved(false)
-      setNoteExpanded(false)
-    }, 1500)
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteError, setNoteError] = useState(null)
+
+  const handleNoteSave = async () => {
+    setNoteSaving(true)
+    setNoteError(null)
+    try {
+      await onNoteSave(home.id, note)
+      setNoteSaved(true)
+      setTimeout(() => {
+        setNoteSaved(false)
+        setNoteExpanded(false)
+      }, 1500)
+    } catch (err) {
+      setNoteError('Failed to save — try again')
+    } finally {
+      setNoteSaving(false)
+    }
   }
 
   // ── Photo handlers ──
@@ -346,10 +357,11 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
                 rows={3}
                 autoFocus
               />
+              {noteError && <div style={{ fontSize: '12px', color: 'var(--coral)', marginBottom: '4px' }}>{noteError}</div>}
               <div className="notes-footer">
                 <button className="btn-cancel-note" onClick={() => setNoteExpanded(false)}>Cancel</button>
-                <button className="btn-save-note" onClick={handleNoteSave}>
-                  {noteSaved ? '✓ Saved' : 'Save Note'}
+                <button className="btn-save-note" onClick={handleNoteSave} disabled={noteSaving}>
+                  {noteSaved ? '✓ Saved' : noteSaving ? 'Saving…' : 'Save Note'}
                 </button>
               </div>
             </>

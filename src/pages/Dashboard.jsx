@@ -223,12 +223,13 @@ const owned = ownedList?.[0]
   }
 
   async function saveNote(homeId, note) {
-    await supabase.from('notes').upsert({
+    const { error } = await supabase.from('notes').upsert({
       user_id: user.id,
       home_id: homeId,
       list_id: listId,
       body: note,
     }, { onConflict: 'user_id,home_id' })
+    if (error) throw new Error(error.message)
   }
 
   async function deleteHome(homeId) {
