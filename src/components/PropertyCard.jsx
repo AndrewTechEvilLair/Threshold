@@ -24,6 +24,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
 
   const [noteSaving, setNoteSaving] = useState(false)
   const [noteError, setNoteError] = useState(null)
+  const [photoUploaded, setPhotoUploaded] = useState(false)
 
   const handleNoteSave = async () => {
     setNoteSaving(true)
@@ -34,7 +35,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
       setTimeout(() => {
         setNoteSaved(false)
         setNoteExpanded(false)
-      }, 1500)
+      }, 3000)
     } catch (err) {
       setNoteError('Failed to save — try again')
     } finally {
@@ -68,6 +69,8 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
       const { error: dbError } = await supabase.from('homes').update({ photo_url: urlData.publicUrl }).eq('id', home.id)
       if (dbError) throw new Error(dbError.message)
       setImgError(false)
+      setPhotoUploaded(true)
+      setTimeout(() => setPhotoUploaded(false), 2500)
       onPhotoUpdate(home.id, urlData.publicUrl)
     } catch (err) {
       console.error('Photo upload failed:', err)
@@ -117,6 +120,8 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
       if (dbError) throw new Error(dbError.message)
 
       setImgError(false)
+      setPhotoUploaded(true)
+      setTimeout(() => setPhotoUploaded(false), 2500)
       onPhotoUpdate(home.id, publicUrl)
     } catch (err) {
       console.error('Photo upload failed:', err)
@@ -172,12 +177,19 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
 
     if (showPhoto) {
       return (
-        <img
-          src={home.photo_url}
-          alt={home.address}
-          onError={() => setImgError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <img
+            src={home.photo_url}
+            alt={home.address}
+            onError={() => setImgError(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+          {photoUploaded && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(29,158,117,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+              ✓
+            </div>
+          )}
+        </div>
       )
     }
 
@@ -239,7 +251,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           {/* Address + price */}
           <div className="card-top">
             <div className="card-address-block">
-              <a href={mapsUrl} target="_blank" rel="noreferrer" className="card-address-link">
+              <a href={mapsUrl} target="_blank" rel="noreferrer" className="card-address-link" title={home.address}>
                 {home.address}
               </a>
               <div className="card-city">

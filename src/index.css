@@ -274,14 +274,14 @@ body {
   padding: 14px 20px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
   transition: color 0.15s;
 }
 
-.view-tab:hover { color: var(--text-secondary); }
+.view-tab:hover { color: var(--text-primary); }
 .view-tab.active { color: var(--coral); border-bottom-color: var(--coral); }
 
 /* ═══════════════════════════════════════
@@ -329,7 +329,7 @@ body {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 2;
 }
@@ -549,7 +549,7 @@ body {
 
 .card-city {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -598,7 +598,7 @@ body {
   color: var(--coral);
   text-decoration: none;
   font-weight: 600;
-  opacity: 0.7;
+  opacity: 0.9;
   transition: opacity 0.15s;
 }
 
@@ -618,7 +618,7 @@ body {
 .drag-handle {
   color: var(--text-muted);
   cursor: grab;
-  opacity: 0.4;
+  opacity: 0.6;
   transition: opacity 0.15s;
   display: flex;
   align-items: center;
@@ -639,7 +639,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.35;
   transition: opacity 0.15s, color 0.15s;
   padding: 0;
 }
@@ -653,7 +653,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  opacity: 0;
+  opacity: 0.35;
   transition: opacity 0.15s;
 }
 
@@ -675,7 +675,7 @@ body {
 }
 
 .move-btn:hover:not(:disabled) { color: var(--text-primary); background: var(--surface-up); }
-.move-btn:disabled { opacity: 0.2; cursor: default; }
+.move-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* Body section: intensity + notes */
 .card-body {
@@ -902,9 +902,9 @@ body {
 .btn-add-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 .add-error { color: var(--coral); font-size: 13px; padding: 0 4px; }
 
-.add-token-error { padding: 4px; }
-.add-token-phrase { font-size: 13px; color: var(--text-secondary); font-style: italic; }
-.add-token-retry { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.add-token-error { padding: 6px 10px; background: rgba(255,96,64,0.08); border: 1px solid rgba(255,96,64,0.2); border-radius: 8px; }
+.add-token-phrase { font-size: 13px; color: var(--text-primary); font-style: italic; }
+.add-token-retry { font-size: 12px; color: var(--coral); margin-top: 4px; font-weight: 600; }
 
 .add-loading-phrase {
   font-size: 12px;
