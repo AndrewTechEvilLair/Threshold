@@ -2,10 +2,15 @@ import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import ShareView from './pages/ShareView'
 import { supabase } from './lib/supabase'
+
+const shareId = new URLSearchParams(window.location.search).get('share')
 
 function AppContent() {
   const { user, loading } = useAuth()
+
+  if (shareId) return <ShareView listId={shareId} />
 
   // Save invite token immediately on page load, before auth wipes the URL
   useEffect(() => {

@@ -25,6 +25,7 @@ export default function Dashboard() {
   const cardRefs = useRef({})
   const [partnerNotesMap, setPartnerNotesMap] = useState({})
   const [stateFilter, setStateFilter] = useState([])
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   useEffect(() => {
     if (user?.id) initList()
@@ -451,7 +452,24 @@ const owned = ownedList?.[0]
             </button>
           )}
           {homes.length > 0 && (
-            <button className="btn-export" onClick={openPrintView}>Export</button>
+            <div className="share-menu-wrap">
+              <button className="btn-export" onClick={() => setShowShareMenu(prev => !prev)}>Share</button>
+              {showShareMenu && (
+                <div className="share-menu" onClick={() => setShowShareMenu(false)}>
+                  <button className="share-menu-item" onClick={openPrintView}>
+                    🖨️ Print View
+                  </button>
+                  <button className="share-menu-item" onClick={() => {
+                    const url = `${window.location.origin}${window.location.pathname}?share=${listId}`
+                    navigator.clipboard.writeText(url)
+                      .then(() => alert('Link copied to clipboard!'))
+                      .catch(() => prompt('Copy this link:', url))
+                  }}>
+                    🔗 Copy Share Link
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button className="btn-signout" onClick={handleSignOut}>Sign out</button>
           <button className="btn-add" onClick={() => setShowAdd(true)}>+ Add</button>
