@@ -354,6 +354,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
                 placeholder="Add a note about this place..."
                 value={note}
                 onChange={e => setNote(e.target.value)}
+                onBlur={handleNoteSave}
                 rows={3}
                 autoFocus
               />
