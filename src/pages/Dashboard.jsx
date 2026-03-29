@@ -547,6 +547,12 @@ const owned = ownedList?.[0]
                   onDragOver={e => e.preventDefault()}
                 >
                   <div className="thumb-rank">{'#' + (index + 1)}</div>
+                  <div className="thumb-img">
+                    {home.photo_url
+                      ? <img src={home.photo_url} alt={home.address} />
+                      : null
+                    }
+                  </div>
                   <div className="thumb-preview">
                     <div className="thumb-preview-img">
                       {home.photo_url
