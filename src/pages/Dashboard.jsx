@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
@@ -147,7 +147,6 @@ const owned = ownedList?.[0]
       .limit(1)
 
     const listData = listDataArr?.[0]
-    console.log('[loadPartner] listData:', listData)
 
     const { data: invites } = await supabase
       .from('invites')
@@ -157,8 +156,7 @@ const owned = ownedList?.[0]
       .limit(1)
 
     const invite = invites?.[0] || null
-    console.log('[loadPartner] invite:', invite)
-    if (!invite || !listData) { console.warn('[loadPartner] returning early — missing invite or listData'); return }
+    if (!invite || !listData) return
 
     const ownerId = listData.owner_id
     const collaboratorId = invite.accepted_by
@@ -191,7 +189,6 @@ const owned = ownedList?.[0]
     const notesMap = {}
     partnerNotesData?.forEach(n => { notesMap[n.home_id] = n.body })
 
-    console.log('[loadPartner] notesMap:', notesMap)
     setPartnerRankings(rankMap)
     setPartnerRatings(ratingMap)
     setPartnerNotesMap(notesMap)
@@ -280,7 +277,7 @@ const owned = ownedList?.[0]
 
   const handleSignOut = async () => { await supabase.auth.signOut() }
 
-  const combinedHomes = [...homes]
+  const combinedHomes = useMemo(() => [...homes]
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((home, _, arr) => {
       const n = arr.length
@@ -302,7 +299,8 @@ const owned = ownedList?.[0]
         partnerIntensity,
         partner_note: partnerNotesMap[home.id] || null,
       }
-    }).sort((a, b) => b.score - a.score)
+    }).sort((a, b) => b.score - a.score),
+  [homes, rankings, ratings, partnerRankings, partnerRatings, partnerNotesMap])
 
   function openPrintView() {
     const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
