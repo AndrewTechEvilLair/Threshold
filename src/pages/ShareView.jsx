@@ -100,6 +100,7 @@ export default function ShareView({ listId }) {
                   {home.beds  && <span>{home.beds} bd</span>}
                   {home.baths && <span>{home.baths} ba</span>}
                   {home.sqft  && <span>{home.sqft.toLocaleString()} sqft</span>}
+                  {home.mls_number && <span>MLS# {home.mls_number}</span>}
                   {home.acres && <span>{home.acres} acres</span>}
                   {home.year_built && <span>Built {home.year_built}</span>}
                 </div>

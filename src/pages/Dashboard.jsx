@@ -322,7 +322,8 @@ const owned = ownedList?.[0]
         : `<div class="no-photo">${(home.city || '?')[0]}</div>`
 
       const myLabel = user?.email?.split('@')[0] || 'Me'
-      const partnerLabel = partner?.email?.split('@')[0] || 'Partner'
+      const partnerEmail = partner?.email && partner.email !== 'pending' ? partner.email : null
+      const partnerLabel = partnerEmail ? partnerEmail.split('@')[0] : 'Partner'
 
       const peopleRows = `
         <div class="people-row">
