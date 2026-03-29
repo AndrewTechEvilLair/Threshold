@@ -313,6 +313,38 @@ const owned = ownedList?.[0]
     }).sort((a, b) => b.score - a.score),
   [homes, rankings, ratings, partnerRankings, partnerRatings, partnerNotesMap])
 
+  function downloadCSV() {
+    const headers = ['Rank', 'Address', 'City', 'State', 'Zip', 'Price', 'Beds', 'Baths', 'Sqft', 'Acres', 'Year Built', 'MLS#', 'Score', 'My Rank', 'My Intensity', 'Partner Rank', 'Partner Intensity', 'URL']
+    const escape = v => v == null ? '' : `"${String(v).replace(/"/g, '""')}"`
+    const rows = combinedHomes.map((home, i) => [
+      i + 1,
+      escape(home.address),
+      escape(home.city),
+      escape(home.state),
+      escape(home.zip),
+      home.price ?? '',
+      home.beds ?? '',
+      home.baths ?? '',
+      home.sqft ?? '',
+      home.acres ?? '',
+      home.year_built ?? '',
+      escape(home.mls_number),
+      home.score ?? '',
+      home.myRank ?? '',
+      home.myIntensity ?? '',
+      home.partnerRank ?? '',
+      home.partnerIntensity ?? '',
+      escape(home.url),
+    ].join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'threshold-homes.csv'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   function openPrintView() {
     const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     const rows = combinedHomes.map((home, i) => {
@@ -476,6 +508,9 @@ const owned = ownedList?.[0]
                       .catch(() => prompt('Copy this link:', url))
                   }}>
                     🔗 Copy Share Link
+                  </button>
+                  <button className="share-menu-item" onClick={downloadCSV}>
+                    📥 Download CSV
                   </button>
                 </div>
               )}
