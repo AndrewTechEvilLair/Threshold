@@ -1716,3 +1716,210 @@ body {
   .share-card-photo { width: 100%; min-width: unset; height: 160px; border-right: none; border-bottom: 1px solid var(--border); }
   .share-card-score { border-left: none; border-top: 1px solid var(--border); flex-direction: row; gap: 8px; justify-content: center; padding: 8px; }
 }
+
+/* ═══════════════════════════════════════
+   ANALYTICS — NEW CHARTS
+═══════════════════════════════════════ */
+
+/* Intensity bar chart */
+.an-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.an-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.an-bar-row:hover { background: var(--surface-hi); }
+
+.an-bar-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 140px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.an-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--surface-up);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.an-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--coral);
+  transition: width 0.4s ease;
+}
+
+.an-bar-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Rank vs Price scatter */
+.an-scatter {
+  position: relative;
+  padding-left: 20px;
+  padding-bottom: 24px;
+}
+
+.an-scatter-area {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  background: var(--surface-up);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: visible;
+}
+
+.an-scatter-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--coral);
+  border: 2px solid rgba(255,96,64,0.3);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  z-index: 1;
+}
+
+.an-scatter-dot:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  box-shadow: 0 0 10px rgba(255,96,64,0.5);
+  z-index: 10;
+}
+
+.an-scatter-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-hi);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 20;
+  line-height: 1.5;
+}
+
+.an-scatter-dot:hover .an-scatter-tooltip { display: block; }
+
+.an-scatter-x-label {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.an-scatter-y-label {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transform-origin: center center;
+}
+
+/* You vs Partner */
+.an-vs-grid {
+  display: flex;
+  gap: 0;
+  min-height: 120px;
+}
+
+.an-vs-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.an-vs-col-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.an-vs-col-title.agree { color: #1D9E75; }
+.an-vs-col-title.talk  { color: #FF9940; }
+
+.an-vs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.an-vs-row:hover { background: var(--surface-hi); }
+
+.an-vs-addr {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.an-vs-ranks {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.an-vs-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 0 8px;
+  align-self: stretch;
+}
+
+.an-vs-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .an-bar-label { width: 90px; font-size: 11px; }
+  .an-scatter-area { height: 180px; }
+  .an-vs-grid { flex-direction: column; gap: 16px; }
+  .an-vs-divider { width: 100%; height: 1px; margin: 0; }
+}

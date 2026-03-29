@@ -751,47 +751,102 @@ const owned = ownedList?.[0]
             </div>
           </div>
 
-          <div className="analytics-row">
-            <div className="an-card">
-              <div className="an-card-title">Intensity · top 8</div>
-              <div className="an-bubbles">
-                {[...homes].sort((a, b) => (ratings[b.id] ?? 50) - (ratings[a.id] ?? 50)).slice(0, 8).map(home => {
-                  const intensity = ratings[home.id] ?? 50
-                  const size = Math.round(32 + (intensity / 100) * 60)
-                  const opacity = 0.4 + (intensity / 100) * 0.6
-                  return (
-                    <div key={home.id} className="an-bubble-col">
-                      <div className="an-bubble" style={{ width: size, height: size, background: `rgba(255,96,64,${opacity})`, fontSize: size > 55 ? 13 : 11 }}>
-                        {intensity}%
-                      </div>
-                      <div className="an-bubble-label">{home.address?.split(' ').slice(0,2).join(' ')}</div>
+          {/* ── Intensity bar chart ── */}
+          <div className="an-card">
+            <div className="an-card-title">Your Intensity</div>
+            <div className="an-bar-chart">
+              {[...homes].sort((a, b) => (ratings[b.id] ?? 50) - (ratings[a.id] ?? 50)).map(home => {
+                const intensity = ratings[home.id] ?? 50
+                return (
+                  <div key={home.id} className="an-bar-row" onClick={() => { setActiveTab('mine'); handleThumbnailClick(home.id) }}>
+                    <div className="an-bar-label">{home.address?.split(',')[0]}</div>
+                    <div className="an-bar-track">
+                      <div className="an-bar-fill" style={{ width: intensity + '%', opacity: 0.4 + (intensity / 100) * 0.6 }} />
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="an-card">
-              <div className="an-card-title">Price vs your rank</div>
-              <div className="an-price-list">
-                {[...homes].map((home, index) => {
-                  const maxPrice = Math.max(...homes.filter(h => h.price).map(h => h.price))
-                  const barWidth = home.price ? Math.round((home.price / maxPrice) * 100) : 0
-                  return (
-                    <div key={home.id} className="an-price-row">
-                      <span className="an-price-rank">#{index + 1}</span>
-                      <span className="an-price-addr">{home.address?.split(',')[0]}</span>
-                      <div className="an-price-bar-bg">
-                        <div className="an-price-bar" style={{width: barWidth + '%'}} />
-                      </div>
-                      <span className="an-price-val">{home.price ? '$' + Math.round(home.price / 1000) + 'K' : '—'}</span>
-                    </div>
-                  )
-                })}
-              </div>
+                    <div className="an-bar-val">{intensity}%</div>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
+          {/* ── Scatter: rank vs price ── */}
+          {homes.filter(h => h.price).length > 1 && (() => {
+            const priced = homes.filter(h => h.price)
+            const maxPrice = Math.max(...priced.map(h => h.price))
+            const minPrice = Math.min(...priced.map(h => h.price))
+            const priceRange = maxPrice - minPrice || 1
+            const n = homes.length
+            return (
+              <div className="an-card">
+                <div className="an-card-title">Rank vs Price</div>
+                <div className="an-scatter">
+                  <div className="an-scatter-area">
+                    {priced.map(home => {
+                      const rank = rankings[home.id] ?? n
+                      const x = ((rank - 1) / Math.max(n - 1, 1)) * 100
+                      const y = 100 - ((home.price - minPrice) / priceRange) * 100
+                      return (
+                        <div
+                          key={home.id}
+                          className="an-scatter-dot"
+                          style={{ left: x + '%', top: y + '%' }}
+                          title={`${home.address?.split(',')[0]} · #${rank} · $${Math.round(home.price/1000)}K`}
+                          onClick={() => { setActiveTab('mine'); handleThumbnailClick(home.id) }}
+                        >
+                          <div className="an-scatter-tooltip">
+                            <div>{home.address?.split(',')[0]}</div>
+                            <div>#{rank} · ${Math.round(home.price/1000)}K</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="an-scatter-x-label">← Higher ranked · Lower ranked →</div>
+                  <div className="an-scatter-y-label">Price ↑</div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── You vs Partner ── */}
+          {partner && (() => {
+            const ranked = homes.filter(h => rankings[h.id] != null && partnerRankings[h.id] != null)
+            const agreements = ranked.filter(h => Math.abs((rankings[h.id] ?? 99) - (partnerRankings[h.id] ?? 99)) <= 2 && Math.abs((ratings[h.id] ?? 50) - (partnerRatings[h.id] ?? 50)) < 25).slice(0, 3)
+            const disagreements = ranked.filter(h => Math.abs((rankings[h.id] ?? 99) - (partnerRankings[h.id] ?? 99)) >= 4 || Math.abs((ratings[h.id] ?? 50) - (partnerRatings[h.id] ?? 50)) >= 35).slice(0, 3)
+            const myLabel = user?.email?.split('@')[0] || 'You'
+            const pLabel = (partner?.email && partner.email !== 'pending') ? partner.email.split('@')[0] : 'Partner'
+            return (
+              <div className="an-card">
+                <div className="an-card-title">You vs {pLabel}</div>
+                <div className="an-vs-grid">
+                  <div className="an-vs-col">
+                    <div className="an-vs-col-title agree">✓ On the same page</div>
+                    {agreements.length === 0 && <div className="an-vs-empty">Not enough data yet</div>}
+                    {agreements.map(home => (
+                      <div key={home.id} className="an-vs-row" onClick={() => { setActiveTab('mine'); handleThumbnailClick(home.id) }}>
+                        <div className="an-vs-addr">{home.address?.split(',')[0]}</div>
+                        <div className="an-vs-ranks">#{rankings[home.id]} · #{partnerRankings[home.id]}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="an-vs-divider" />
+                  <div className="an-vs-col">
+                    <div className="an-vs-col-title talk">💬 Worth a talk</div>
+                    {disagreements.length === 0 && <div className="an-vs-empty">No major disagreements</div>}
+                    {disagreements.map(home => (
+                      <div key={home.id} className="an-vs-row" onClick={() => { setActiveTab('mine'); handleThumbnailClick(home.id) }}>
+                        <div className="an-vs-addr">{home.address?.split(',')[0]}</div>
+                        <div className="an-vs-ranks">#{rankings[home.id] ?? '?'} · #{partnerRankings[home.id] ?? '?'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── Agreement list + stats ── */}
           <div className="analytics-row">
             <div className="an-card">
               <div className="an-card-title">Agreement</div>
@@ -805,7 +860,7 @@ const owned = ownedList?.[0]
                 const intGap = hasPartner ? Math.abs(myInt - pInt) : null
                 const isDisagreement = hasPartner && (rankGap >= 4 || intGap >= 35)
                 return (
-                  <div key={home.id} className="an-agree-row">
+                  <div key={home.id} className="an-agree-row" onClick={() => { setActiveTab('mine'); handleThumbnailClick(home.id) }} style={{ cursor: 'pointer' }}>
                     <div className="an-agree-addr">{home.address?.split(',')[0]}</div>
                     {!hasPartner
                       ? <span className="an-badge an-badge-waiting">waiting</span>
@@ -853,19 +908,22 @@ const owned = ownedList?.[0]
             </div>
           </div>
 
+          {/* ── Sweet spot callout ── */}
           {(() => {
+            const priced = combinedHomes.filter(h => h.price)
+            if (priced.length < 2) return null
+            const avgPrice = priced.reduce((s, h) => s + h.price, 0) / priced.length
+            const sweetSpot = priced.reduce((best, h) => {
+              const val = (h.score / Math.max(1, h.price / avgPrice))
+              const bestVal = (best.score / Math.max(1, best.price / avgPrice))
+              return val > bestVal ? h : best
+            })
             const topHome = combinedHomes[0]
-            const cheapest = [...homes].filter(h=>h.price).sort((a,b) => a.price - b.price)[0]
-            if (!topHome) return null
-            const topIsCheapest = cheapest && topHome.id === cheapest.id
             return (
               <div className="an-insight">
-                {topIsCheapest
-                  ? `Your #1 pick (${topHome.address?.split(',')[0]}) is also your cheapest at $${Math.round(topHome.price/1000)}K — strong signal.`
-                  : `Your top ranked home is ${topHome.address?.split(',')[0]} at $${topHome.price ? Math.round(topHome.price/1000)+'K' : 'unknown price'}.`
-                }
-                {Object.values(ratings).length > 0 && ` Average intensity is ${Math.round(Object.values(ratings).reduce((s,v)=>s+v,0)/Object.values(ratings).length)}%.`}
-                {!partner && ' Invite your partner to unlock agreement tracking.'}
+                {sweetSpot && <>🏆 <strong>Best value:</strong> {sweetSpot.address?.split(',')[0]} — score {Math.max(0, sweetSpot.score)} at ${Math.round(sweetSpot.price/1000)}K.</>}
+                {topHome && topHome.id !== sweetSpot?.id && <> Your top pick is {topHome.address?.split(',')[0]} at ${topHome.price ? Math.round(topHome.price/1000)+'K' : 'unknown price'}.</>}
+                {!partner && <> Invite your partner to unlock agreement tracking.</>}
               </div>
             )
           })()}

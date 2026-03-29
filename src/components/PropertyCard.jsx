@@ -320,7 +320,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           </div>
           <button
             className="delete-btn"
-            onClick={() => onDelete(home.id)}
+            onClick={() => { if (window.confirm(`Remove "${home.address}"?`)) onDelete(home.id) }}
             title="Remove listing"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
