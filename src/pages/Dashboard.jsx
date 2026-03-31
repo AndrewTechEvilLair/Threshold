@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
 import AddListing from '../components/AddListing'
 import InviteModal from '../components/InviteModal'
-import HomeMap from '../components/HomeMap'
+import { lazy, Suspense } from 'react'
+const HomeMap = lazy(() => import('../components/HomeMap'))
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -712,11 +713,13 @@ const owned = ownedList?.[0]
           </div>
           {homes.some(h => h.lat && h.lng) && (
             <div className="map-panel">
-              <HomeMap
-                homes={homes}
-                activeId={mapActiveId}
-                onHomeClick={handleThumbnailClick}
-              />
+              <Suspense fallback={null}>
+                <HomeMap
+                  homes={homes}
+                  activeId={mapActiveId}
+                  onHomeClick={handleThumbnailClick}
+                />
+              </Suspense>
             </div>
           )}
         </div>
@@ -843,17 +846,19 @@ const owned = ownedList?.[0]
           </div>
           {combinedHomes.some(h => h.lat && h.lng) && (
             <div className="map-panel">
-              <HomeMap
-                homes={combinedHomes}
-                activeId={mapActiveId}
-                onHomeClick={(id) => {
-                  setHighlightedId(id)
-                  setTimeout(() => {
-                    cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  }, 50)
-                  setTimeout(() => setHighlightedId(null), 2000)
-                }}
-              />
+              <Suspense fallback={null}>
+                <HomeMap
+                  homes={combinedHomes}
+                  activeId={mapActiveId}
+                  onHomeClick={(id) => {
+                    setHighlightedId(id)
+                    setTimeout(() => {
+                      cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }, 50)
+                    setTimeout(() => setHighlightedId(null), 2000)
+                  }}
+                />
+              </Suspense>
             </div>
           )}
         </div>
