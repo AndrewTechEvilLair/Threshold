@@ -521,6 +521,104 @@ body {
   .area-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ═══════════════════════════════════════
+   LEADERBOARD PANEL
+═══════════════════════════════════════ */
+
+.leaderboard-panel {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 148px;
+  height: calc(100vh - 148px);
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hi) transparent;
+}
+
+.leaderboard-panel::-webkit-scrollbar { width: 4px; }
+.leaderboard-panel::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+.leaderboard-title {
+  font-family: "Syne", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.leaderboard-list { display: flex; flex-direction: column; }
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.leaderboard-row:hover { background: var(--surface-hi); }
+.leaderboard-row-active { background: var(--coral-dim) !important; border-left: 2px solid var(--coral); }
+
+.leaderboard-rank {
+  font-family: "Syne", sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--coral);
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.leaderboard-info { flex: 1; min-width: 0; }
+
+.leaderboard-addr {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboard-meta { display: flex; gap: 8px; margin-top: 2px; }
+.leaderboard-meta span { font-size: 11px; color: var(--text-muted); }
+
+.leaderboard-intensity { width: 40px; flex-shrink: 0; }
+
+.leaderboard-bar-track {
+  height: 4px;
+  background: var(--surface-up);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.leaderboard-bar-fill {
+  height: 100%;
+  background: var(--coral);
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.leaderboard-score {
+  font-family: "Syne", sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--coral);
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) { .leaderboard-panel { display: none; } }
+
 /* Map tooltip */
 .map-tooltip-wrap {
   background: transparent !important;
