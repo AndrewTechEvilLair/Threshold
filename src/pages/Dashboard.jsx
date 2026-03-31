@@ -281,18 +281,25 @@ const owned = ownedList?.[0]
   }
 
   useEffect(() => {
-    if (activeTab !== 'mine') return
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) setMapActiveId(entry.target.dataset.homeId)
+    if (activeTab !== 'mine' && activeTab !== 'combined') return
+    const handleScroll = () => {
+      const mid = window.innerHeight / 2
+      let closest = null
+      let closestDist = Infinity
+      const list = activeTab === 'mine' ? homes : combinedHomes
+      list.forEach(home => {
+        const el = cardRefs.current[home.id]
+        if (!el) return
+        const rect = el.getBoundingClientRect()
+        const dist = Math.abs((rect.top + rect.bottom) / 2 - mid)
+        if (dist < closestDist) { closestDist = dist; closest = home.id }
       })
-    }, { threshold: 0.5 })
-    homes.forEach(home => {
-      const el = cardRefs.current[home.id]
-      if (el) { el.dataset.homeId = home.id; observer.observe(el) }
-    })
-    return () => observer.disconnect()
-  }, [homes, activeTab])
+      if (closest) setMapActiveId(closest)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [homes, combinedHomes, activeTab])
 
   function handleThumbnailClick(homeId) {
     setHighlightedId(homeId)
@@ -693,7 +700,7 @@ const owned = ownedList?.[0]
                 const photoSrc = home.photo_url || mapTileUrl
 
                 return (
-                  <div key={home.id} className="card">
+                  <div key={home.id} className="card" ref={el => cardRefs.current[home.id] = el}>
                     <div className="card-main">
 
                       <div className="card-rank-col">
@@ -790,6 +797,21 @@ const owned = ownedList?.[0]
             )}
             <div className="card-list-spacer" />
           </div>
+          {combinedHomes.some(h => h.lat && h.lng) && (
+            <div className="map-panel">
+              <HomeMap
+                homes={combinedHomes}
+                activeId={mapActiveId}
+                onHomeClick={(id) => {
+                  setHighlightedId(id)
+                  setTimeout(() => {
+                    cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }, 50)
+                  setTimeout(() => setHighlightedId(null), 2000)
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
 

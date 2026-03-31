@@ -11,10 +11,29 @@ function makeIcon(rank, isActive) {
   })
 }
 
+function tooltipHtml(home, rank) {
+  const price = home.price ? '$' + home.price.toLocaleString() : null
+  const stats = [
+    home.beds  ? `${home.beds} bd` : null,
+    home.baths ? `${home.baths} ba` : null,
+    home.sqft  ? `${home.sqft.toLocaleString()} sqft` : null,
+  ].filter(Boolean).join(' · ')
+  return `
+    <div class="map-tooltip">
+      <div class="map-tooltip-rank">#${rank}</div>
+      <div class="map-tooltip-addr">${home.address || ''}</div>
+      ${price ? `<div class="map-tooltip-price">${price}</div>` : ''}
+      ${stats ? `<div class="map-tooltip-stats">${stats}</div>` : ''}
+    </div>
+  `
+}
+
 export default function HomeMap({ homes, activeId, onHomeClick }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef({})
+  const homesRef = useRef(homes)
+  homesRef.current = homes
 
   // Init map once
   useEffect(() => {
@@ -46,9 +65,18 @@ export default function HomeMap({ homes, activeId, onHomeClick }) {
     if (!mappable.length) return
 
     mappable.forEach((home, i) => {
+      const rank = i + 1
       const marker = L.marker([home.lat, home.lng], {
-        icon: makeIcon(i + 1, home.id === activeId),
+        icon: makeIcon(rank, home.id === activeId),
       }).addTo(map)
+
+      marker.bindTooltip(tooltipHtml(home, rank), {
+        direction: 'top',
+        offset: [0, -10],
+        opacity: 1,
+        className: 'map-tooltip-wrap',
+      })
+
       marker.on('click', () => onHomeClick?.(home.id))
       markersRef.current[home.id] = marker
     })
@@ -62,14 +90,14 @@ export default function HomeMap({ homes, activeId, onHomeClick }) {
     const map = mapRef.current
     if (!map) return
 
-    homes.forEach((home, i) => {
+    homesRef.current.forEach((home, i) => {
       const marker = markersRef.current[home.id]
       if (marker) marker.setIcon(makeIcon(i + 1, home.id === activeId))
     })
 
-    const active = homes.find(h => h.id === activeId)
+    const active = homesRef.current.find(h => h.id === activeId)
     if (active?.lat && active?.lng) {
-      map.panTo([active.lat, active.lng], { animate: true, duration: 0.6 })
+      map.panTo([active.lat, active.lng], { animate: true, duration: 0.5 })
     }
   }, [activeId])
 
