@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
 import AddListing from '../components/AddListing'
 import InviteModal from '../components/InviteModal'
-import { lazy, Suspense } from 'react'
-const HomeMap = lazy(() => import('../components/HomeMap'))
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -28,7 +26,6 @@ export default function Dashboard() {
   const [partnerNotesMap, setPartnerNotesMap] = useState({})
   const [stateFilter, setStateFilter] = useState([])
   const [showShareMenu, setShowShareMenu] = useState(false)
-  const [mapActiveId, setMapActiveId] = useState(null)
   const [areaHome, setAreaHome] = useState(null)
 
   const AREA_CATEGORIES = [
@@ -299,26 +296,6 @@ const owned = ownedList?.[0]
     setRankings(newRankings)
   }
 
-  useEffect(() => {
-    if (activeTab !== 'mine' && activeTab !== 'combined') return
-    const handleScroll = () => {
-      const mid = window.innerHeight / 2
-      let closest = null
-      let closestDist = Infinity
-      const list = activeTab === 'mine' ? homes : combinedHomes
-      list.forEach(home => {
-        const el = cardRefs.current[home.id]
-        if (!el) return
-        const rect = el.getBoundingClientRect()
-        const dist = Math.abs((rect.top + rect.bottom) / 2 - mid)
-        if (dist < closestDist) { closestDist = dist; closest = home.id }
-      })
-      if (closest) setMapActiveId(closest)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [homes, combinedHomes, activeTab])
 
   function handleThumbnailClick(homeId) {
     setHighlightedId(homeId)
@@ -711,17 +688,6 @@ const owned = ownedList?.[0]
             )}
             <div className="card-list-spacer" />
           </div>
-          {homes.some(h => h.lat && h.lng) && (
-            <div className="map-panel">
-              <Suspense fallback={null}>
-                <HomeMap
-                  homes={homes}
-                  activeId={mapActiveId}
-                  onHomeClick={handleThumbnailClick}
-                />
-              </Suspense>
-            </div>
-          )}
         </div>
       )}
 
@@ -844,23 +810,6 @@ const owned = ownedList?.[0]
             )}
             <div className="card-list-spacer" />
           </div>
-          {combinedHomes.some(h => h.lat && h.lng) && (
-            <div className="map-panel">
-              <Suspense fallback={null}>
-                <HomeMap
-                  homes={combinedHomes}
-                  activeId={mapActiveId}
-                  onHomeClick={(id) => {
-                    setHighlightedId(id)
-                    setTimeout(() => {
-                      cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                    }, 50)
-                    setTimeout(() => setHighlightedId(null), 2000)
-                  }}
-                />
-              </Suspense>
-            </div>
-          )}
         </div>
       )}
 
