@@ -78,7 +78,7 @@ listing_url must be the full homes.com property URL if found, otherwise null. Nu
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
+      max_tokens: 2048,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -96,7 +96,9 @@ listing_url must be the full homes.com property URL if found, otherwise null. Nu
   const data = await response.json()
   const textBlock = data.content?.find(b => b.type === 'text')
   const raw = textBlock?.text || ''
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
+  // Strip markdown code fences if present
+  const stripped = raw.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '')
+  const jsonMatch = stripped.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Could not parse listing data')
   return JSON.parse(jsonMatch[0])
 }
