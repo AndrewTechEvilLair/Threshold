@@ -28,6 +28,24 @@ export default function Dashboard() {
   const [stateFilter, setStateFilter] = useState([])
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [mapActiveId, setMapActiveId] = useState(null)
+  const [areaHome, setAreaHome] = useState(null)
+
+  const AREA_CATEGORIES = [
+    { label: 'Coffee & Espresso', emoji: '☕', query: 'coffee espresso' },
+    { label: 'Ice Cream',         emoji: '🍦', query: 'ice cream' },
+    { label: 'Gas Stations',      emoji: '⛽', query: 'gas station' },
+    { label: 'Grocery Stores',    emoji: '🛒', query: 'grocery store' },
+    { label: 'Restaurants',       emoji: '🍽️', query: 'restaurants' },
+    { label: 'Schools',           emoji: '🏫', query: 'school' },
+    { label: 'Wholesale Clubs',   emoji: '🏬', query: 'wholesale club costco sams' },
+    { label: 'Parks & Trails',    emoji: '🌳', query: 'parks trails' },
+  ]
+
+  function areaUrl(home, query) {
+    if (home.lat && home.lng) return `https://www.google.com/maps/search/${encodeURIComponent(query)}/@${home.lat},${home.lng},13z`
+    const addr = [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
+    return `https://www.google.com/maps/search/${encodeURIComponent(query + ' near ' + addr)}`
+  }
 
   useEffect(() => {
     if (user?.id) initList()
@@ -588,6 +606,30 @@ const owned = ownedList?.[0]
         <InviteModal listId={listId} onClose={() => setShowInvite(false)} />
       )}
 
+      {areaHome && (
+        <div className="area-overlay" onClick={() => setAreaHome(null)}>
+          <div className="area-modal" onClick={e => e.stopPropagation()}>
+            <div className="area-modal-header">
+              <div>
+                <div className="area-modal-title">In the Area</div>
+                <div className="area-modal-sub">{[areaHome.city, areaHome.state].filter(Boolean).join(', ')} · opens in Google Maps</div>
+              </div>
+              <button className="area-modal-close" onClick={() => setAreaHome(null)}>✕</button>
+            </div>
+            <div className="area-modal-label">SELECT A CATEGORY TO SEARCH NEARBY</div>
+            <div className="area-grid">
+              {AREA_CATEGORIES.map(cat => (
+                <a key={cat.query} href={areaUrl(areaHome, cat.query)} target="_blank" rel="noreferrer" className="area-tile" onClick={() => setAreaHome(null)}>
+                  <span className="area-tile-emoji">{cat.emoji}</span>
+                  <span className="area-tile-label">{cat.label}</span>
+                </a>
+              ))}
+            </div>
+            <div className="area-modal-footer">↗ Results open in Google Maps · zoom out to expand the search area</div>
+          </div>
+        </div>
+      )}
+
       {/* MY LIST TAB */}
       {activeTab === 'mine' && (
         <div className="dashboard-body">
@@ -732,22 +774,24 @@ const owned = ownedList?.[0]
                           {home.sqft  && <div className="card-stat"><span className="card-stat-val">{home.sqft.toLocaleString()}</span><span className="card-stat-label">Sqft</span></div>}
                           {home.acres && <div className="card-stat"><span className="card-stat-val">{home.acres}</span><span className="card-stat-label">Acres</span></div>}
                         </div>
-                        {(home.url || home.mls_number) && (
-                          <div className="card-source-row" style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
-                            {home.url && (
-                              <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>
-                            )}
-                            {home.mls_number && (
-                              <span style={{fontSize:'11px',color:'var(--text-muted)'}}>MLS# {home.mls_number}</span>
-                            )}
-                          </div>
-                        )}
+                        <div className="card-source-row" style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
+                          {home.url && (
+                            <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>
+                          )}
+                          <button className="btn-in-the-area" onClick={() => setAreaHome(home)}>🗺️ In the Area</button>
+                          {home.mls_number && (
+                            <span style={{fontSize:'11px',color:'var(--text-muted)'}}>MLS# {home.mls_number}</span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="card-actions" style={{justifyContent:'center'}}>
-                        <div style={{textAlign:'center'}}>
+                        <div className="combined-score-wrap">
                           <div style={{fontFamily:'"Syne",sans-serif',fontSize:'16px',fontWeight:800,color:'var(--coral)'}}>★ {Math.max(0, home.score)}</div>
                           <div style={{fontSize:'9px',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'1px',marginTop:'3px'}}>score</div>
+                          <div className="combined-score-tooltip">
+                            Score blends both partners' rankings (70%) and intensity (30%). Higher = stronger mutual interest.
+                          </div>
                         </div>
                       </div>
                     </div>
