@@ -27,6 +27,26 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
   const [photoUploaded, setPhotoUploaded] = useState(false)
   const [priceEditing, setPriceEditing] = useState(false)
   const [priceValue, setPriceValue] = useState(home.price ? String(home.price) : '')
+  const [showAreaMenu, setShowAreaMenu] = useState(false)
+
+  const AREA_CATEGORIES = [
+    { label: 'Coffee & Espresso', emoji: '☕', query: 'coffee espresso' },
+    { label: 'Ice Cream',         emoji: '🍦', query: 'ice cream' },
+    { label: 'Gas Stations',      emoji: '⛽', query: 'gas station' },
+    { label: 'Grocery Stores',    emoji: '🛒', query: 'grocery store' },
+    { label: 'Restaurants',       emoji: '🍽️', query: 'restaurants' },
+    { label: 'Schools',           emoji: '🏫', query: 'school' },
+    { label: 'Wholesale Clubs',   emoji: '🏬', query: 'wholesale club costco sams' },
+    { label: 'Parks & Trails',    emoji: '🌳', query: 'parks trails' },
+  ]
+
+  function areaUrl(query) {
+    if (home.lat && home.lng) {
+      return `https://www.google.com/maps/search/${encodeURIComponent(query)}/@${home.lat},${home.lng},13z`
+    }
+    const addr = [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
+    return `https://www.google.com/maps/search/${encodeURIComponent(query + ' near ' + addr)}`
+  }
 
   const handleNoteSave = async () => {
     setNoteSaving(true)
@@ -136,11 +156,6 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
     [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
   )
 
-  const iceCreamUrl = home.lat && home.lng
-    ? `https://www.google.com/maps/search/ice+cream+shop/@${home.lat},${home.lng},15z`
-    : 'https://www.google.com/maps/search/ice+cream+shop+near+' + encodeURIComponent(
-        [home.address, home.city, home.state, home.zip].filter(Boolean).join(', ')
-      )
 
   const statItems = [
     home.beds       ? { label: 'Beds',  val: home.beds }                  : null,
@@ -302,9 +317,9 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
                   {'View on ' + (home.source_site || 'listing') + ' →'}
                 </a>
               )}
-              <a href={iceCreamUrl} target="_blank" rel="noreferrer" className="card-source-link">
-                🍦 Nearest Ice Cream
-              </a>
+              <button className="btn-in-the-area" onClick={() => setShowAreaMenu(true)}>
+                🗺️ In the Area
+              </button>
               {home.mls_number && (
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MLS# {home.mls_number}</span>
               )}
@@ -408,6 +423,38 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
         </div>
 
       </div>
+
+      {/* In the Area modal */}
+      {showAreaMenu && (
+        <div className="area-overlay" onClick={() => setShowAreaMenu(false)}>
+          <div className="area-modal" onClick={e => e.stopPropagation()}>
+            <div className="area-modal-header">
+              <div>
+                <div className="area-modal-title">In the Area</div>
+                <div className="area-modal-sub">{[home.city, home.state].filter(Boolean).join(', ')} · opens in Google Maps</div>
+              </div>
+              <button className="area-modal-close" onClick={() => setShowAreaMenu(false)}>✕</button>
+            </div>
+            <div className="area-modal-label">SELECT A CATEGORY TO SEARCH NEARBY</div>
+            <div className="area-grid">
+              {AREA_CATEGORIES.map(cat => (
+                <a
+                  key={cat.query}
+                  href={areaUrl(cat.query)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="area-tile"
+                  onClick={() => setShowAreaMenu(false)}
+                >
+                  <span className="area-tile-emoji">{cat.emoji}</span>
+                  <span className="area-tile-label">{cat.label}</span>
+                </a>
+              ))}
+            </div>
+            <div className="area-modal-footer">↗ Results open in Google Maps · zoom out to expand the search area</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
