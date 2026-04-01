@@ -343,8 +343,10 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
               {home.mls_number && (
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MLS# {home.mls_number}</span>
               )}
-              {home.created_at && (
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Added {formatDate(home.created_at)}</span>
+              {(home.updated_at || home.created_at) && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {home.updated_at ? 'Updated ' : 'Added '}{formatDate(home.updated_at || home.created_at)}
+                </span>
               )}
             </div>
 
@@ -392,7 +394,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           </div>
           <button
             className="delete-btn"
-            onClick={() => { if (window.confirm(`Remove "${home.address}"?`)) onDelete(home.id) }}
+            onClick={() => onDelete(home.id)}
             title="Remove listing"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

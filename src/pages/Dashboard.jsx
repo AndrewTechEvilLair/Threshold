@@ -7,6 +7,63 @@ import InviteModal from '../components/InviteModal'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
+const REMOVE_REASONS = [
+  'Price too high',
+  'Too small',
+  'Bad location',
+  'Not the right layout',
+  'Needs too much work',
+  'HOA concerns',
+  'Lost interest',
+  'Other',
+]
+
+function RemoveDialog({ address, onConfirm, onCancel }) {
+  const [selected, setSelected] = useState('')
+  const [custom, setCustom] = useState('')
+
+  const reason = selected === 'Other' ? custom.trim() : selected
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-box remove-dialog" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Pass on this listing?</span>
+          <button className="modal-close" onClick={onCancel}>✕</button>
+        </div>
+        <div className="remove-dialog-addr">{address}</div>
+        <div className="remove-dialog-label">Why are you passing?</div>
+        <div className="remove-reason-grid">
+          {REMOVE_REASONS.map(r => (
+            <button
+              key={r}
+              className={'remove-reason-btn' + (selected === r ? ' active' : '')}
+              onClick={() => setSelected(r)}
+            >{r}</button>
+          ))}
+        </div>
+        {selected === 'Other' && (
+          <input
+            className="remove-custom-input"
+            placeholder="Tell us more..."
+            value={custom}
+            onChange={e => setCustom(e.target.value)}
+            autoFocus
+          />
+        )}
+        <div className="remove-dialog-actions">
+          <button className="btn-cancel-note" onClick={onCancel}>Cancel</button>
+          <button
+            className="btn-remove-confirm"
+            onClick={() => onConfirm(reason)}
+            disabled={!selected || (selected === 'Other' && !custom.trim())}
+          >Pass on this home</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const [listId, setListId] = useState(null)
@@ -29,6 +86,9 @@ export default function Dashboard() {
   const [stateFilter, setStateFilter] = useState([])
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [areaHome, setAreaHome] = useState(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [removedHomes, setRemovedHomes] = useState([])
+  const [removeDialog, setRemoveDialog] = useState(null) // { homeId, address }
 
   const AREA_CATEGORIES = [
     { label: 'Coffee & Espresso', emoji: '☕', query: 'coffee espresso' },
@@ -150,13 +210,17 @@ const owned = ownedList?.[0]
     setRankings(rankMap)
     setRatings(ratingMap)
 
-    const sorted = (homesData || []).sort((a, b) => {
+    const active = (homesData || []).filter(h => !h.removed)
+    const removed = (homesData || []).filter(h => h.removed)
+
+    const sorted = active.sort((a, b) => {
       const ra = rankMap[a.id] ?? 9999
       const rb = rankMap[b.id] ?? 9999
       return ra - rb
     }).map(h => ({ ...h, user_note: notesMap[h.id] || '' }))
 
     setHomes(sorted)
+    setRemovedHomes(removed.map(h => ({ ...h, user_note: notesMap[h.id] || '' })))
   }
 
   async function loadPartner(lid) {
@@ -231,7 +295,7 @@ const owned = ownedList?.[0]
       .eq('list_id', lid)
       .or(`created_at.lt.${tenDaysAgo},status.is.null`)
 
-    if (!stale || stale.length === 0) return
+    if (!stale || stale.length === 0) { setIsRefreshing(false); return }
 
     const updates = await Promise.allSettled(stale.map(async (home) => {
       if (!home.url) return null
@@ -276,6 +340,13 @@ const owned = ownedList?.[0]
         return u ? { ...h, ...u } : h
       }))
     }
+    setIsRefreshing(false)
+  }
+
+  async function handleManualRefresh() {
+    if (!listId || isRefreshing) return
+    setIsRefreshing(true)
+    await refreshStaleListings(listId)
   }
 
   async function saveRankings(orderedHomes) {
@@ -310,9 +381,23 @@ const owned = ownedList?.[0]
     if (error) throw new Error(error.message)
   }
 
-  async function deleteHome(homeId) {
-    await supabase.from('homes').delete().eq('id', homeId)
-    setHomes(prev => prev.filter(h => h.id !== homeId))
+  async function confirmRemove(homeId, reason) {
+    const home = homes.find(h => h.id === homeId)
+    await supabase.from('homes').update({ removed: true, removed_reason: reason || null }).eq('id', homeId)
+    setHomes(prev => {
+      const updated = prev.filter(h => h.id !== homeId)
+      saveRankings(updated)
+      return updated
+    })
+    if (home) setRemovedHomes(prev => [...prev, { ...home, removed: true, removed_reason: reason || null }])
+    setRemoveDialog(null)
+  }
+
+  async function restoreHome(homeId) {
+    await supabase.from('homes').update({ removed: false, removed_reason: null }).eq('id', homeId)
+    const home = removedHomes.find(h => h.id === homeId)
+    setRemovedHomes(prev => prev.filter(h => h.id !== homeId))
+    if (home) setHomes(prev => [...prev, { ...home, removed: false, removed_reason: null }])
   }
 
   function handlePhotoUpdate(homeId, photoUrl) {
@@ -613,6 +698,14 @@ const owned = ownedList?.[0]
           {activeTab === 'combined' && ' · sorted by combined score'}
           {activeTab === 'analytics' && ' · your list at a glance'}
         </span>
+        <button
+          className="btn-refresh"
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          title="Re-check status and price for all listings"
+        >
+          {isRefreshing ? '⟳ Refreshing…' : '⟳ Refresh'}
+        </button>
         {activeTab === 'combined' && stateChips.length > 1 && (
           <div className="sub-state-chips">
             {stateChips.map(({ state, count }) => (
@@ -642,6 +735,14 @@ const owned = ownedList?.[0]
 
       {showInvite && (
         <InviteModal listId={listId} onClose={() => setShowInvite(false)} />
+      )}
+
+      {removeDialog && (
+        <RemoveDialog
+          address={removeDialog.address}
+          onConfirm={(reason) => confirmRemove(removeDialog.homeId, reason)}
+          onCancel={() => setRemoveDialog(null)}
+        />
       )}
 
       {areaHome && (
@@ -732,7 +833,7 @@ const owned = ownedList?.[0]
                     rank={index + 1}
                     intensity={ratings[home.id] ?? 50}
                     onIntensityChange={(val) => saveRating(home.id, val)}
-                    onDelete={deleteHome}
+                    onDelete={(id) => setRemoveDialog({ homeId: id, address: home.address })}
                     onNoteSave={saveNote}
                     onPhotoUpdate={handlePhotoUpdate}
                     onPriceUpdate={handlePriceUpdate}
@@ -748,6 +849,27 @@ const owned = ownedList?.[0]
             )}
             <div className="card-list-spacer" />
           </div>
+
+          {removedHomes.length > 0 && (
+            <div className="removed-panel">
+              <div className="removed-panel-header">Passed On</div>
+              {removedHomes.map(home => (
+                <div key={home.id} className="removed-card">
+                  {home.photo_url && (
+                    <img src={home.photo_url} alt={home.address} className="removed-card-photo" />
+                  )}
+                  <div className="removed-card-info">
+                    <div className="removed-card-address">{home.address}</div>
+                    <div className="removed-card-city">{[home.city, home.state].filter(Boolean).join(', ')}</div>
+                    {home.removed_reason && (
+                      <div className="removed-card-reason">"{home.removed_reason}"</div>
+                    )}
+                    <button className="removed-card-restore" onClick={() => restoreHome(home.id)}>↩ Restore</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -819,6 +941,12 @@ const owned = ownedList?.[0]
                           <button className="btn-in-the-area" onClick={() => setAreaHome(home)}>🗺️ In the Area</button>
                           {home.mls_number && (
                             <span style={{fontSize:'11px',color:'var(--text-muted)'}}>MLS# {home.mls_number}</span>
+                          )}
+                          {(home.updated_at || home.created_at) && (
+                            <span style={{fontSize:'11px',color:'var(--text-muted)'}}>
+                              {home.updated_at ? 'Updated ' : 'Added '}
+                              {new Date(home.updated_at || home.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}
+                            </span>
                           )}
                         </div>
                       </div>
