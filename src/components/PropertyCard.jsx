@@ -15,6 +15,21 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
 
   const formatPrice = (p) => p ? '$' + p.toLocaleString() : 'Price N/A'
 
+  const formatDate = (iso) => {
+    if (!iso) return null
+    const d = new Date(iso)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const statusColor = (s) => {
+    if (!s) return 'var(--text-muted)'
+    const sl = s.toLowerCase()
+    if (sl === 'active') return '#1d9e75'
+    if (sl === 'pending' || sl === 'under contract') return '#d4a017'
+    if (sl === 'sold') return 'var(--coral)'
+    return 'var(--text-muted)'
+  }
+
   const intensityLabel = (val) => {
     if (val < 25) return '😬 Hard Pass'
     if (val < 50) return '🤔 Maybe'
@@ -275,6 +290,11 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
                 {[home.city, home.state, home.zip].filter(Boolean).join(', ')}
               </div>
             </div>
+            {home.status && (
+              <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor(home.status), letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                {home.status}
+              </span>
+            )}
             {priceEditing ? (
               <input
                 className="card-price-input"
@@ -322,6 +342,9 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
               </button>
               {home.mls_number && (
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MLS# {home.mls_number}</span>
+              )}
+              {home.created_at && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Added {formatDate(home.created_at)}</span>
               )}
             </div>
 

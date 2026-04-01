@@ -60,7 +60,7 @@ async function fetchListingData(input) {
 ${propertyLine}
 
 Search for this property and a photo CDN URL. Return:
-{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"zillow|redfin|realtor|homes|trulia","mls_number":"","listing_url":null}
+{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://...","status":"Active|Pending|Under Contract|Sold|Off Market","description":"summary of the property","highlights":["tag1","tag2"],"source_site":"zillow|redfin|realtor|homes|trulia","mls_number":"","listing_url":null}
 
 listing_url must be null when a source URL was already provided. Null for unknown fields. Raw JSON only.`
   } else {
@@ -68,7 +68,7 @@ listing_url must be null when a source URL was already provided. Null for unknow
 Address: ${input}
 
 Find the listing on homes.com. Return:
-{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://...","description":"1-2 sentences","highlights":["tag1","tag2"],"source_site":"homes","mls_number":"","listing_url":"https://www.homes.com/property/..."}
+{"address":"street only","city":"","state":"ST","zip":"","price":0,"beds":0,"baths":0,"sqft":0,"acres":0.0,"year_built":0,"photo_url":"https://...","status":"Active|Pending|Under Contract|Sold|Off Market","description":"summary of the property","highlights":["tag1","tag2"],"source_site":"homes","mls_number":"","listing_url":"https://www.homes.com/property/..."}
 
 listing_url must be the full homes.com property URL if found, otherwise null. Null for unknown fields. Raw JSON only.`
   }
@@ -244,6 +244,7 @@ export default function AddListing({ listId, onAdded }) {
           description: data.description,
           highlights: data.highlights,
           source_site: data.source_site,
+          status: data.status ?? null,
           mls_number: data.mls_number ?? null,
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,

@@ -5,6 +5,8 @@ import PropertyCard from '../components/PropertyCard'
 import AddListing from '../components/AddListing'
 import InviteModal from '../components/InviteModal'
 
+const WORKER_URL = import.meta.env.VITE_WORKER_URL
+
 export default function Dashboard() {
   const { user } = useAuth()
   const [listId, setListId] = useState(null)
@@ -72,6 +74,7 @@ export default function Dashboard() {
       await loadHomes(invite.list_id)
       await loadPartner(invite.list_id)
       setLoading(false)
+      refreshStaleListings(invite.list_id)
       return
     }
 
@@ -90,6 +93,7 @@ const owned = ownedList?.[0]
       await loadHomes(owned.id)
       await loadPartner(owned.id)
       setLoading(false)
+      refreshStaleListings(owned.id)
       return
     }
 
@@ -217,6 +221,60 @@ const owned = ownedList?.[0]
       const rb = rankMap[b.id] ?? 9999
       return ra - rb
     }))
+  }
+
+  async function refreshStaleListings(lid) {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: stale } = await supabase
+      .from('homes')
+      .select('id, url, address')
+      .eq('list_id', lid)
+      .lt('created_at', tenDaysAgo)
+
+    if (!stale || stale.length === 0) return
+
+    const updates = await Promise.allSettled(stale.map(async (home) => {
+      if (!home.url) return null
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 512,
+            tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+            messages: [{
+              role: 'user',
+              content: `Check the current listing status and price for this property and return ONLY raw JSON, no markdown:\nURL: ${home.url}\n\nReturn: {"status":"Active|Pending|Under Contract|Sold|Off Market","price":0}\n\nNull for unknown fields. Raw JSON only.`
+            }],
+          }),
+        })
+        if (!response.ok) return null
+        const data = await response.json()
+        const textBlock = data.content?.find(b => b.type === 'text')
+        const raw = (textBlock?.text || '').replace(/```(?:json)?\s*/gi, '').replace(/```/g, '')
+        const match = raw.match(/\{[\s\S]*\}/)
+        if (!match) return null
+        const parsed = JSON.parse(match[0])
+        const update = {}
+        if (parsed.status) update.status = parsed.status
+        if (parsed.price)  update.price  = parsed.price
+        if (Object.keys(update).length === 0) return null
+        await supabase.from('homes').update(update).eq('id', home.id)
+        return { id: home.id, ...update }
+      } catch { return null }
+    }))
+
+    const changed = updates
+      .filter(r => r.status === 'fulfilled' && r.value)
+      .map(r => r.value)
+
+    if (changed.length > 0) {
+      setHomes(prev => prev.map(h => {
+        const u = changed.find(c => c.id === h.id)
+        return u ? { ...h, ...u } : h
+      }))
+    }
   }
 
   async function saveRankings(orderedHomes) {
