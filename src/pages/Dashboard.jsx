@@ -229,7 +229,7 @@ const owned = ownedList?.[0]
       .from('homes')
       .select('id, url, address')
       .eq('list_id', lid)
-      .lt('created_at', tenDaysAgo)
+      .or(`created_at.lt.${tenDaysAgo},status.is.null`)
 
     if (!stale || stale.length === 0) return
 
@@ -260,6 +260,7 @@ const owned = ownedList?.[0]
         if (parsed.status) update.status = parsed.status
         if (parsed.price)  update.price  = parsed.price
         if (Object.keys(update).length === 0) return null
+        update.updated_at = new Date().toISOString()
         await supabase.from('homes').update(update).eq('id', home.id)
         return { id: home.id, ...update }
       } catch { return null }
@@ -794,7 +795,16 @@ const owned = ownedList?.[0]
                             <div className="card-address-link">{home.address}</div>
                             <div className="card-city">{[home.city, home.state, home.zip].filter(Boolean).join(', ')}</div>
                           </div>
-                          <div className="card-price">{home.price ? '$' + home.price.toLocaleString() : 'Price N/A'}</div>
+                          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px'}}>
+                            {home.status && (
+                              <span style={{fontSize:'11px',fontWeight:600,letterSpacing:'0.4px',textTransform:'uppercase',color:
+                                home.status.toLowerCase() === 'active' ? '#1d9e75' :
+                                home.status.toLowerCase() === 'pending' || home.status.toLowerCase() === 'under contract' ? '#d4a017' :
+                                home.status.toLowerCase() === 'sold' ? 'var(--coral)' : 'var(--text-muted)'
+                              }}>{home.status}</span>
+                            )}
+                            <div className="card-price">{home.price ? '$' + home.price.toLocaleString() : 'Price N/A'}</div>
+                          </div>
                         </div>
                         <div className="card-stats">
                           {home.beds  && <div className="card-stat"><span className="card-stat-val">{home.beds}</span><span className="card-stat-label">Beds</span></div>}
@@ -837,8 +847,13 @@ const owned = ownedList?.[0]
                             <span className="combined-pct">{home.myIntensity}%</span>
                           </div>
                           {home.user_note && (
-                            <div style={{fontSize:'12px',color:'var(--text-secondary)',marginTop:'8px',lineHeight:1.5}}>
-                              {home.user_note.slice(0, 100)}{home.user_note.length > 100 ? '…' : ''}
+                            <div className="note-tooltip-wrap" style={{marginTop:'8px'}}>
+                              <div style={{fontSize:'12px',color:'var(--text-secondary)',lineHeight:1.5}}>
+                                {home.user_note.slice(0, 100)}{home.user_note.length > 100 ? '…' : ''}
+                              </div>
+                              {home.user_note.length > 0 && (
+                                <div className="note-tooltip">{home.user_note}</div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -856,8 +871,13 @@ const owned = ownedList?.[0]
                             <span className="combined-pct">{home.partnerIntensity}%</span>
                           </div>
                           {home.partner_note && (
-                            <div style={{fontSize:'12px',color:'var(--text-secondary)',marginTop:'8px',lineHeight:1.5}}>
-                              {home.partner_note.slice(0, 100)}{home.partner_note.length > 100 ? '…' : ''}
+                            <div className="note-tooltip-wrap" style={{marginTop:'8px'}}>
+                              <div style={{fontSize:'12px',color:'var(--text-secondary)',lineHeight:1.5}}>
+                                {home.partner_note.slice(0, 100)}{home.partner_note.length > 100 ? '…' : ''}
+                              </div>
+                              {home.partner_note.length > 0 && (
+                                <div className="note-tooltip">{home.partner_note}</div>
+                              )}
                             </div>
                           )}
                         </div>

@@ -1443,6 +1443,30 @@ body {
 .combined-intensity-row { display: flex; align-items: center; gap: 6px; }
 .combined-emoji { font-size: 14px; }
 
+.note-tooltip-wrap {
+  position: relative;
+  cursor: default;
+}
+.note-tooltip-wrap .note-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  background: var(--card-bg, #1e1e2e);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  min-width: 200px;
+  max-width: 300px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.note-tooltip-wrap:hover .note-tooltip { display: block; }
+
 .combined-bar-track {
   flex: 1;
   height: 4px;
