@@ -86,7 +86,7 @@ export default function Dashboard() {
   const [stateFilter, setStateFilter] = useState([])
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [areaHome, setAreaHome] = useState(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [refreshingCardId, setRefreshingCardId] = useState(null)
   const [removedHomes, setRemovedHomes] = useState([])
   const [removeDialog, setRemoveDialog] = useState(null) // { homeId, address }
 
@@ -340,13 +340,42 @@ const owned = ownedList?.[0]
         return u ? { ...h, ...u } : h
       }))
     }
-    setIsRefreshing(false)
   }
 
-  async function handleManualRefresh() {
-    if (!listId || isRefreshing) return
-    setIsRefreshing(true)
-    await refreshStaleListings(listId)
+  async function refreshCard(homeId) {
+    const home = homes.find(h => h.id === homeId)
+    if (!home?.url || refreshingCardId) return
+    setRefreshingCardId(homeId)
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 512,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{
+            role: 'user',
+            content: `Check the current listing status and price for this property and return ONLY raw JSON, no markdown:\nURL: ${home.url}\n\nReturn: {"status":"Active|Pending|Under Contract|Sold|Off Market","price":0}\n\nNull for unknown fields. Raw JSON only.`
+          }],
+        }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const textBlock = data.content?.find(b => b.type === 'text')
+        const raw = (textBlock?.text || '').replace(/```(?:json)?\s*/gi, '').replace(/```/g, '')
+        const match = raw.match(/\{[\s\S]*\}/)
+        if (match) {
+          const parsed = JSON.parse(match[0])
+          const update = { updated_at: new Date().toISOString() }
+          if (parsed.status) update.status = parsed.status
+          if (parsed.price)  update.price  = parsed.price
+          await supabase.from('homes').update(update).eq('id', homeId)
+          setHomes(prev => prev.map(h => h.id === homeId ? { ...h, ...update } : h))
+        }
+      }
+    } catch (e) { console.warn('Card refresh failed:', e) }
+    setRefreshingCardId(null)
   }
 
   async function saveRankings(orderedHomes) {
@@ -698,14 +727,6 @@ const owned = ownedList?.[0]
           {activeTab === 'combined' && ' · sorted by combined score'}
           {activeTab === 'analytics' && ' · your list at a glance'}
         </span>
-        <button
-          className="btn-refresh"
-          onClick={handleManualRefresh}
-          disabled={isRefreshing}
-          title="Re-check status and price for all listings"
-        >
-          {isRefreshing ? '⟳ Refreshing…' : '⟳ Refresh'}
-        </button>
         {activeTab === 'combined' && stateChips.length > 1 && (
           <div className="sub-state-chips">
             {stateChips.map(({ state, count }) => (
@@ -834,6 +855,8 @@ const owned = ownedList?.[0]
                     intensity={ratings[home.id] ?? 50}
                     onIntensityChange={(val) => saveRating(home.id, val)}
                     onDelete={(id) => setRemoveDialog({ homeId: id, address: home.address })}
+                    onRefresh={refreshCard}
+                    isRefreshing={refreshingCardId === home.id}
                     onNoteSave={saveNote}
                     onPhotoUpdate={handlePhotoUpdate}
                     onPriceUpdate={handlePriceUpdate}
@@ -1015,6 +1038,51 @@ const owned = ownedList?.[0]
                 )
               })
             )}
+
+            {removedHomes.length > 0 && (
+              <>
+                <div className="combined-passed-divider">
+                  <span>Passed On · {removedHomes.length}</span>
+                </div>
+                {removedHomes.map(home => {
+                  const photoSrc = home.photo_url
+                  return (
+                    <div key={home.id} className="card combined-passed-card">
+                      <div className="card-main">
+                        <div className="card-rank-col">
+                          <span style={{fontSize:'18px'}}>✕</span>
+                        </div>
+                        <div className="card-photo">
+                          {photoSrc
+                            ? <img src={photoSrc} alt={home.address} style={{width:'100%',height:'100%',objectFit:'cover',display:'block',filter:'grayscale(70%)'}} />
+                            : <div className="card-photo-placeholder" />
+                          }
+                        </div>
+                        <div className="card-info">
+                          <div className="card-top">
+                            <div className="card-address-block">
+                              <div className="card-address-link">{home.address}</div>
+                              <div className="card-city">{[home.city, home.state, home.zip].filter(Boolean).join(', ')}</div>
+                            </div>
+                            <div className="card-price">{home.price ? '$' + home.price.toLocaleString() : 'Price N/A'}</div>
+                          </div>
+                          {home.removed_reason && (
+                            <div style={{fontSize:'12px',color:'var(--text-muted)',fontStyle:'italic',marginTop:'4px'}}>
+                              Passed: "{home.removed_reason}"
+                            </div>
+                          )}
+                          <div style={{display:'flex',gap:'12px',marginTop:'6px',flexWrap:'wrap',alignItems:'center'}}>
+                            {home.url && <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>}
+                            <button className="removed-card-restore" onClick={() => restoreHome(home.id)}>↩ Restore</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+
             <div className="card-list-spacer" />
           </div>
         </div>

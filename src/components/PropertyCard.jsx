@@ -1,7 +1,7 @@
 ﻿import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onNoteSave, onPhotoUpdate, onPriceUpdate, isHighlighted, cardRef, onMoveUp, onMoveDown, isFirst, isLast }) {
+export default function PropertyCard({ home, rank, intensity, onIntensityChange, onDelete, onRefresh, isRefreshing, onNoteSave, onPhotoUpdate, onPriceUpdate, isHighlighted, cardRef, onMoveUp, onMoveDown, isFirst, isLast }) {
   const [note, setNote] = useState(home.user_note || '')
   const [noteExpanded, setNoteExpanded] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
@@ -392,6 +392,16 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
               </svg>
             </button>
           </div>
+          <button
+            className="card-refresh-btn"
+            onClick={() => onRefresh(home.id)}
+            disabled={isRefreshing}
+            title="Refresh status and price"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: isRefreshing ? 'rotate(360deg)' : 'none', transition: isRefreshing ? 'transform 0.8s linear infinite' : 'none' }}>
+              <path d="M10 6A4 4 0 1 1 6 2V0L9 3 6 6V4A2 2 0 1 0 8 6h2z" fill="currentColor"/>
+            </svg>
+          </button>
           <button
             className="delete-btn"
             onClick={() => onDelete(home.id)}
