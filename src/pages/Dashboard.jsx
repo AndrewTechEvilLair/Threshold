@@ -661,7 +661,7 @@ const owned = ownedList?.[0]
     const w = window.open('', '_blank')
     w.document.write(html)
     w.document.close()
-  }
+  } 
 
   const stateChips = [...new Set(homes.map(h => h.state).filter(Boolean))].sort()
     .map(state => ({ state, count: homes.filter(h => h.state === state).length }))
