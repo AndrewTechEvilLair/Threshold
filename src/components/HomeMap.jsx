@@ -36,10 +36,21 @@ function statusColor(s) {
   return 'var(--text-muted)'
 }
 
+const TILES = {
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+}
+
+function TileLayerSwitcher({ theme }) {
+  const map = useMap()
+  return <TileLayer key={theme} url={TILES[theme]} />
+}
+
 export default function HomeMap({ homes, ratings = {}, rankings = {}, partnerRatings = {}, onHomeClick }) {
   const mappable = homes.filter(h => h.lat && h.lng)
   const [selectedId, setSelectedId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [mapTheme, setMapTheme] = useState('dark')
   const drawerRef = useRef(null)
   const startY = useRef(null)
 
@@ -84,7 +95,7 @@ export default function HomeMap({ homes, ratings = {}, rankings = {}, partnerRat
         zoomControl={true}
         attributionControl={false}
       >
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        <TileLayerSwitcher theme={mapTheme} />
         <PanTo activeId={selectedId} homes={mappable} />
         {mappable.map((home, i) => (
           <Marker
@@ -95,6 +106,15 @@ export default function HomeMap({ homes, ratings = {}, rankings = {}, partnerRat
           />
         ))}
       </MapContainer>
+
+      {/* Theme toggle */}
+      <button
+        className="map-theme-toggle"
+        onClick={() => setMapTheme(t => t === 'dark' ? 'light' : 'dark')}
+        title={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
+      >
+        {mapTheme === 'dark' ? '☀️' : '🌙'}
+      </button>
 
       {/* Drawer */}
       {selectedHome && (
