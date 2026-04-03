@@ -1132,6 +1132,14 @@ const owned = ownedList?.[0]
             partnerRatings={partnerRatings}
             stateFilter={stateFilter}
             onHomeClick={(id) => setHighlightedId(id)}
+            onNavigate={(id) => {
+              setActiveTab('mine')
+              setHighlightedId(id)
+              setTimeout(() => {
+                cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }, 100)
+              setTimeout(() => setHighlightedId(null), 2500)
+            }}
           />
         </div>
       )}

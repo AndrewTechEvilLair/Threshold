@@ -80,7 +80,7 @@ function MapClickHandler({ onMapClick }) {
   return null
 }
 
-export default function HomeMap({ homes, combinedHomes = [], ratings = {}, partnerRatings = {}, stateFilter = [], onHomeClick }) {
+export default function HomeMap({ homes, combinedHomes = [], ratings = {}, partnerRatings = {}, stateFilter = [], onHomeClick, onNavigate }) {
   const mappable = homes.filter(h => h.lat && h.lng)
   const [selectedId, setSelectedId] = useState(null)
   const [mapTheme, setMapTheme] = useState('dark')
@@ -175,11 +175,11 @@ export default function HomeMap({ homes, combinedHomes = [], ratings = {}, partn
 
             {/* Photo */}
             {selectedHome.photo_url && (
-              <img src={selectedHome.photo_url} alt={selectedHome.address} className="map-side-photo" />
+              <img src={selectedHome.photo_url} alt={selectedHome.address} className="map-side-photo" style={{ cursor: onNavigate ? 'pointer' : 'default' }} onClick={() => onNavigate?.(selectedHome.id)} />
             )}
 
             {/* Header */}
-            <div className="map-side-header">
+            <div className="map-side-header" style={{ cursor: onNavigate ? 'pointer' : 'default' }} onClick={() => onNavigate?.(selectedHome.id)} title="Go to listing">
               <div className="map-side-rank">#{selectedRank}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="map-side-address">{selectedHome.address}</div>
