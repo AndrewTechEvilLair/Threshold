@@ -345,11 +345,227 @@ body {
   flex: 1;
   height: calc(100vh - 148px);
   overflow: hidden;
+  position: relative;
 }
 .map-tab-wrap .home-map {
   width: 100%;
   height: 100%;
 }
+
+/* ═══════════════════════════════════════
+   MAP DRAWER
+═══════════════════════════════════════ */
+
+.map-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 399;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.map-drawer-scrim.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.map-drawer {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(calc(100% - 120px));
+  width: min(480px, 100%);
+  background: var(--card-bg, #16213e);
+  border-radius: 20px 20px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  z-index: 400;
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+.map-drawer.open {
+  transform: translateX(-50%) translateY(0);
+}
+
+.map-drawer-peek {
+  padding: 10px 20px 14px;
+  cursor: pointer;
+}
+
+.map-drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 14px;
+}
+
+.map-drawer-peek-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.map-drawer-peek-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.map-drawer-rank {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--coral);
+  flex-shrink: 0;
+}
+
+.map-drawer-address {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-drawer-city {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.map-drawer-peek-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.map-drawer-status {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.map-drawer-price {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--coral);
+}
+
+.map-drawer-body {
+  padding: 0 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.map-drawer-photo {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.map-drawer-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.map-drawer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-drawer-stat-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.map-drawer-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.map-drawer-intensity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-drawer-intensity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.map-drawer-intensity-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.map-drawer-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.map-drawer-bar-fill {
+  height: 100%;
+  background: var(--coral);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.map-drawer-bar-fill.partner { background: #4A9EFF; }
+
+.map-drawer-intensity-pct {
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.map-drawer-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.map-drawer-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.map-drawer-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
 
 .map-pin {
   width: 30px;

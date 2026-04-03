@@ -1100,11 +1100,10 @@ const owned = ownedList?.[0]
         <div className="map-tab-wrap">
           <HomeMap
             homes={filteredHomes}
-            activeId={highlightedId}
-            onHomeClick={(id) => {
-              setHighlightedId(id)
-              setTimeout(() => setHighlightedId(null), 2000)
-            }}
+            ratings={ratings}
+            rankings={rankings}
+            partnerRatings={partnerRatings}
+            onHomeClick={(id) => setHighlightedId(id)}
           />
         </div>
       )}
