@@ -222,6 +222,31 @@ const owned = ownedList?.[0]
 
     setHomes(sorted)
     setRemovedHomes(removed.map(h => ({ ...h, user_note: notesMap[h.id] || '' })))
+
+    // Geocode any homes missing coordinates (fire-and-forget)
+    const missing = (homesData || []).filter(h => !h.lat || !h.lng)
+    if (missing.length > 0) geocodeMissing(missing)
+  }
+
+  async function geocodeMissing(missing) {
+    for (const home of missing) {
+      const parts = [home.address, home.city, home.state, home.zip].filter(Boolean)
+      if (!parts.length) continue
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(parts.join(', '))}&format=json&limit=1&countrycodes=us`,
+          { headers: { 'Accept-Language': 'en', 'User-Agent': 'Threshold/1.0' } }
+        )
+        const data = await res.json()
+        if (!data?.[0]) continue
+        const lat = parseFloat(data[0].lat)
+        const lng = parseFloat(data[0].lon)
+        await supabase.from('homes').update({ lat, lng }).eq('id', home.id)
+        setHomes(prev => prev.map(h => h.id === home.id ? { ...h, lat, lng } : h))
+      } catch { /* silent */ }
+      // Rate limit: Nominatim asks for 1 req/sec
+      await new Promise(r => setTimeout(r, 1100))
+    }
   }
 
   async function loadPartner(lid) {
@@ -1102,9 +1127,10 @@ const owned = ownedList?.[0]
         <div className="map-tab-wrap">
           <HomeMap
             homes={filteredHomes}
+            combinedHomes={combinedHomes}
             ratings={ratings}
-            rankings={rankings}
             partnerRatings={partnerRatings}
+            stateFilter={stateFilter}
             onHomeClick={(id) => setHighlightedId(id)}
           />
         </div>

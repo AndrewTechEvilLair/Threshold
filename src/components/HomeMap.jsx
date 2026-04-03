@@ -24,14 +24,32 @@ function makeIcon(rank, isActive, theme) {
   })
 }
 
-function PanTo({ activeId, homes }) {
+function PanTo({ activeId, homes, stateFilter }) {
   const map = useMap()
+
   useEffect(() => {
     const active = homes.find(h => h.id === activeId)
     if (active?.lat && active?.lng) {
       map.panTo([active.lat, active.lng], { animate: true, duration: 0.4 })
     }
   }, [activeId])
+
+  useEffect(() => {
+    if (!stateFilter || stateFilter.length === 0) return
+    const filtered = homes.filter(h => stateFilter.includes(h.state) && h.lat && h.lng)
+    if (filtered.length === 0) return
+    if (filtered.length === 1) {
+      map.setView([filtered[0].lat, filtered[0].lng], 11, { animate: true })
+      return
+    }
+    const lats = filtered.map(h => h.lat)
+    const lngs = filtered.map(h => h.lng)
+    map.fitBounds(
+      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+      { padding: [60, 60], animate: true, maxZoom: 13 }
+    )
+  }, [stateFilter?.join(',')])
+
   return null
 }
 
@@ -57,14 +75,17 @@ function TileLayerSwitcher({ theme }) {
   return <TileLayer key={theme} url={TILES[theme]} />
 }
 
-export default function HomeMap({ homes, ratings = {}, partnerRatings = {}, onHomeClick }) {
+export default function HomeMap({ homes, combinedHomes = [], ratings = {}, partnerRatings = {}, stateFilter = [], onHomeClick }) {
   const mappable = homes.filter(h => h.lat && h.lng)
   const [selectedId, setSelectedId] = useState(null)
   const [mapTheme, setMapTheme] = useState('dark')
 
+  // Build a rank map from combined list (1-based position in sorted combined list)
+  const combinedRankMap = Object.fromEntries(combinedHomes.map((h, i) => [h.id, i + 1]))
+
   const selectedHome = mappable.find(h => h.id === selectedId)
   const selectedIndex = mappable.findIndex(h => h.id === selectedId)
-  const selectedRank = selectedIndex + 1
+  const selectedRank = combinedRankMap[selectedId] ?? (selectedIndex + 1)
 
   function selectHome(id) {
     setSelectedId(id)
@@ -104,15 +125,18 @@ export default function HomeMap({ homes, ratings = {}, partnerRatings = {}, onHo
           attributionControl={false}
         >
           <TileLayerSwitcher theme={mapTheme} />
-          <PanTo activeId={selectedId} homes={mappable} />
-          {mappable.map((home, i) => (
-            <Marker
-              key={home.id + '-' + mapTheme}
-              position={[home.lat, home.lng]}
-              icon={makeIcon(i + 1, home.id === selectedId, mapTheme)}
-              eventHandlers={{ click: () => selectHome(home.id) }}
-            />
-          ))}
+          <PanTo activeId={selectedId} homes={mappable} stateFilter={stateFilter} />
+          {mappable.map((home) => {
+            const rank = combinedRankMap[home.id] ?? (mappable.indexOf(home) + 1)
+            return (
+              <Marker
+                key={home.id + '-' + mapTheme}
+                position={[home.lat, home.lng]}
+                icon={makeIcon(rank, home.id === selectedId, mapTheme)}
+                eventHandlers={{ click: () => selectHome(home.id) }}
+              />
+            )
+          })}
         </MapContainer>
 
         {/* Theme toggle */}
