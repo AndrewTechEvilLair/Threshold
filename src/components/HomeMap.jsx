@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -75,6 +75,11 @@ function TileLayerSwitcher({ theme }) {
   return <TileLayer key={theme} url={TILES[theme]} />
 }
 
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({ click: onMapClick })
+  return null
+}
+
 export default function HomeMap({ homes, combinedHomes = [], ratings = {}, partnerRatings = {}, stateFilter = [], onHomeClick }) {
   const mappable = homes.filter(h => h.lat && h.lng)
   const [selectedId, setSelectedId] = useState(null)
@@ -125,6 +130,7 @@ export default function HomeMap({ homes, combinedHomes = [], ratings = {}, partn
           attributionControl={false}
         >
           <TileLayerSwitcher theme={mapTheme} />
+          <MapClickHandler onMapClick={() => setSelectedId(null)} />
           <PanTo activeId={selectedId} homes={mappable} stateFilter={stateFilter} />
           {mappable.map((home) => {
             const rank = combinedRankMap[home.id] ?? (mappable.indexOf(home) + 1)
