@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import PropertyCard from '../components/PropertyCard'
 import AddListing from '../components/AddListing'
 import InviteModal from '../components/InviteModal'
+import HomeMap from '../components/HomeMap'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -662,12 +663,16 @@ const owned = ownedList?.[0]
     w.document.close()
   }
 
-  const stateChips = [...new Set(combinedHomes.map(h => h.state).filter(Boolean))].sort()
-    .map(state => ({ state, count: combinedHomes.filter(h => h.state === state).length }))
+  const stateChips = [...new Set(homes.map(h => h.state).filter(Boolean))].sort()
+    .map(state => ({ state, count: homes.filter(h => h.state === state).length }))
 
   function toggleStateFilter(state) {
     setStateFilter(prev => prev.includes(state) ? prev.filter(s => s !== state) : [...prev, state])
   }
+
+  const filteredHomes = stateFilter.length === 0
+    ? homes
+    : homes.filter(h => stateFilter.includes(h.state))
 
   const filteredCombined = stateFilter.length === 0
     ? combinedHomes
@@ -717,6 +722,7 @@ const owned = ownedList?.[0]
       <div className="view-bar">
         <div className={`view-tab ${activeTab === 'mine' ? 'active' : ''}`} onClick={() => setActiveTab('mine')}>My List</div>
         <div className={`view-tab ${activeTab === 'combined' ? 'active' : ''}`} onClick={() => setActiveTab('combined')}>Combined</div>
+        <div className={`view-tab ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>Map View</div>
         <div className={`view-tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>Analytics</div>
       </div>
 
@@ -725,9 +731,10 @@ const owned = ownedList?.[0]
           <strong>{homes.length} {homes.length === 1 ? 'home' : 'homes'}</strong>
           {activeTab === 'mine' && (homes.length === 0 ? ' · add your first listing' : ' · drag to reorder')}
           {activeTab === 'combined' && ' · sorted by combined score'}
+          {activeTab === 'map' && ' · homes with location data'}
           {activeTab === 'analytics' && ' · your list at a glance'}
         </span>
-        {activeTab === 'combined' && stateChips.length > 1 && (
+        {(activeTab === 'mine' || activeTab === 'combined' || activeTab === 'map') && stateChips.length > 1 && (
           <div className="sub-state-chips">
             {stateChips.map(({ state, count }) => (
               <button
@@ -833,7 +840,7 @@ const owned = ownedList?.[0]
                 <p>Hit <strong>+ Add</strong> and paste a listing URL to get started.</p>
               </div>
             ) : (
-              homes.map((home, index) => (
+              filteredHomes.map((home, index) => (
                 <div
                   key={home.id}
                   draggable
@@ -1085,6 +1092,20 @@ const owned = ownedList?.[0]
 
             <div className="card-list-spacer" />
           </div>
+        </div>
+      )}
+
+      {/* MAP VIEW TAB */}
+      {activeTab === 'map' && (
+        <div className="map-tab-wrap">
+          <HomeMap
+            homes={filteredHomes}
+            activeId={highlightedId}
+            onHomeClick={(id) => {
+              setHighlightedId(id)
+              setTimeout(() => setHighlightedId(null), 2000)
+            }}
+          />
         </div>
       )}
 

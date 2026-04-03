@@ -341,6 +341,16 @@ body {
   height: 100%;
 }
 
+.map-tab-wrap {
+  flex: 1;
+  height: calc(100vh - 148px);
+  overflow: hidden;
+}
+.map-tab-wrap .home-map {
+  width: 100%;
+  height: 100%;
+}
+
 .map-pin {
   width: 30px;
   height: 30px;
