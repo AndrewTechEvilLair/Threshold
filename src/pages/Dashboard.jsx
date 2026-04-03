@@ -1135,9 +1135,11 @@ const owned = ownedList?.[0]
             </div>
             <div className="an-metric">
               <div className="an-val">
-                {Object.values(ratings).length > 0
-                  ? Math.round(Object.values(ratings).reduce((s, v) => s + v, 0) / Object.values(ratings).length) + '%'
-                  : '—'}
+                {(() => {
+                  const activeIds = new Set(homes.map(h => h.id))
+                  const vals = Object.entries(ratings).filter(([id]) => activeIds.has(id)).map(([, v]) => v)
+                  return vals.length > 0 ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) + '%' : '—'
+                })()}
               </div>
               <div className="an-label">avg intensity</div>
             </div>
