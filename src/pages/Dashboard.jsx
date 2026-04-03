@@ -76,7 +76,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('mine')
   const [highlightedId, setHighlightedId] = useState(null)
   const [partner, setPartner] = useState(null)
-  const [partnerHomes, setPartnerHomes] = useState([])
+  const [, setPartnerHomes] = useState([])
   const [partnerRankings, setPartnerRankings] = useState({})
   const [partnerRatings, setPartnerRatings] = useState({})
   const dragItem = useRef(null)
@@ -959,7 +959,7 @@ const owned = ownedList?.[0]
                         </div>
                         <div className="card-source-row" style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
                           {home.url && (
-                            <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>
+                            <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">{'View on ' + (() => { try { return new URL(home.url).hostname.replace('www.', '').split('.')[0] } catch { return 'listing' } })() + ' →'}</a>
                           )}
                           <button className="btn-in-the-area" onClick={() => setAreaHome(home)}>🗺️ In the Area</button>
                           {home.mls_number && (
@@ -1072,7 +1072,7 @@ const owned = ownedList?.[0]
                             </div>
                           )}
                           <div style={{display:'flex',gap:'12px',marginTop:'6px',flexWrap:'wrap',alignItems:'center'}}>
-                            {home.url && <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">View listing →</a>}
+                            {home.url && <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">{'View on ' + (() => { try { return new URL(home.url).hostname.replace('www.', '').split('.')[0] } catch { return 'listing' } })() + ' →'}</a>}
                             <button className="removed-card-restore" onClick={() => restoreHome(home.id)}>↩ Restore</button>
                           </div>
                         </div>
@@ -1185,7 +1185,6 @@ const owned = ownedList?.[0]
             const ranked = homes.filter(h => rankings[h.id] != null && partnerRankings[h.id] != null)
             const agreements = ranked.filter(h => Math.abs((rankings[h.id] ?? 99) - (partnerRankings[h.id] ?? 99)) <= 2 && Math.abs((ratings[h.id] ?? 50) - (partnerRatings[h.id] ?? 50)) < 25).slice(0, 3)
             const disagreements = ranked.filter(h => Math.abs((rankings[h.id] ?? 99) - (partnerRankings[h.id] ?? 99)) >= 4 || Math.abs((ratings[h.id] ?? 50) - (partnerRatings[h.id] ?? 50)) >= 35).slice(0, 3)
-            const myLabel = user?.email?.split('@')[0] || 'You'
             const pLabel = (partner?.email && partner.email !== 'pending') ? partner.email.split('@')[0] : 'Partner'
             return (
               <div className="an-card">

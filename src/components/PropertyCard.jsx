@@ -334,7 +334,7 @@ export default function PropertyCard({ home, rank, intensity, onIntensityChange,
           <div className="card-source-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               {home.url && (
                 <a href={home.url} target="_blank" rel="noreferrer" className="card-source-link">
-                  {'View on ' + (home.source_site || 'listing') + ' →'}
+                  {'View on ' + (() => { try { return new URL(home.url).hostname.replace('www.', '').split('.')[0] } catch { return home.source_site || 'listing' } })() + ' →'}
                 </a>
               )}
               <button className="btn-in-the-area" onClick={() => setShowAreaMenu(true)}>
