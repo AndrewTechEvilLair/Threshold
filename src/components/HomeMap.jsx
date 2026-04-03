@@ -1,12 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-function makeIcon(rank, isActive) {
+function makeIcon(rank, isActive, theme) {
+  const light = theme === 'light'
+  const bg = isActive ? (light ? '#c0392b' : '#e8442a') : (light ? '#3a3a4a' : 'rgba(255,255,255,0.15)')
+  const border = isActive ? (light ? '#c0392b' : '#e8442a') : (light ? '#555' : 'rgba(255,255,255,0.3)')
+  const color = light ? '#fff' : (isActive ? '#fff' : '#ccc')
+  const glow = isActive ? (light ? '0 0 0 4px rgba(192,57,43,0.25)' : '0 0 0 4px rgba(232,68,42,0.35)') : 'none'
   return L.divIcon({
     className: '',
-    html: `<div class="map-pin${isActive ? ' map-pin-active' : ''}">${rank}</div>`,
+    html: `<div style="
+      width:30px;height:30px;border-radius:50%;
+      background:${bg};border:2px solid ${border};
+      color:${color};font-family:Syne,sans-serif;font-size:11px;font-weight:800;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:${glow};
+      transition:all 0.2s;
+    ">${rank}</div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   })
@@ -42,34 +54,26 @@ const TILES = {
 }
 
 function TileLayerSwitcher({ theme }) {
-  const map = useMap()
   return <TileLayer key={theme} url={TILES[theme]} />
 }
 
-export default function HomeMap({ homes, ratings = {}, rankings = {}, partnerRatings = {}, onHomeClick }) {
+export default function HomeMap({ homes, ratings = {}, partnerRatings = {}, onHomeClick }) {
   const mappable = homes.filter(h => h.lat && h.lng)
   const [selectedId, setSelectedId] = useState(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [mapTheme, setMapTheme] = useState('dark')
-  const drawerRef = useRef(null)
-  const startY = useRef(null)
 
   const selectedHome = mappable.find(h => h.id === selectedId)
-  const selectedRank = mappable.findIndex(h => h.id === selectedId) + 1
+  const selectedIndex = mappable.findIndex(h => h.id === selectedId)
+  const selectedRank = selectedIndex + 1
 
   function selectHome(id) {
     setSelectedId(id)
-    setDrawerOpen(false) // start collapsed, user taps to expand
     onHomeClick?.(id)
   }
 
-  function handleDrawerTouchStart(e) {
-    startY.current = e.touches[0].clientY
-  }
-  function handleDrawerTouchEnd(e) {
-    const delta = startY.current - e.changedTouches[0].clientY
-    if (delta > 40) setDrawerOpen(true)
-    if (delta < -40) setDrawerOpen(false)
+  function navigate(dir) {
+    const next = mappable[selectedIndex + dir]
+    if (next) selectHome(next.id)
   }
 
   if (!mappable.length) return (
@@ -85,120 +89,116 @@ export default function HomeMap({ homes, ratings = {}, rankings = {}, partnerRat
 
   const myIntensity = selectedHome ? (ratings[selectedHome.id] ?? 50) : 0
   const partnerIntensity = selectedHome ? (partnerRatings[selectedHome.id] ?? 50) : 0
+  const isLight = mapTheme === 'light'
 
   return (
-    <div className="map-tab-wrap" style={{ position: 'relative' }}>
-      <MapContainer
-        center={center}
-        zoom={9}
-        className="home-map"
-        zoomControl={true}
-        attributionControl={false}
-      >
-        <TileLayerSwitcher theme={mapTheme} />
-        <PanTo activeId={selectedId} homes={mappable} />
-        {mappable.map((home, i) => (
-          <Marker
-            key={home.id}
-            position={[home.lat, home.lng]}
-            icon={makeIcon(i + 1, home.id === selectedId)}
-            eventHandlers={{ click: () => selectHome(home.id) }}
-          />
-        ))}
-      </MapContainer>
+    <div className={'map-tab-wrap map-theme-' + mapTheme} style={{ display: 'flex', position: 'relative' }}>
 
-      {/* Theme toggle */}
-      <button
-        className="map-theme-toggle"
-        onClick={() => setMapTheme(t => t === 'dark' ? 'light' : 'dark')}
-        title={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
-      >
-        {mapTheme === 'dark' ? '☀️' : '🌙'}
-      </button>
+      {/* Map */}
+      <div style={{ flex: 1, position: 'relative', height: '100%' }}>
+        <MapContainer
+          center={center}
+          zoom={9}
+          className="home-map"
+          zoomControl={true}
+          attributionControl={false}
+        >
+          <TileLayerSwitcher theme={mapTheme} />
+          <PanTo activeId={selectedId} homes={mappable} />
+          {mappable.map((home, i) => (
+            <Marker
+              key={home.id + '-' + mapTheme}
+              position={[home.lat, home.lng]}
+              icon={makeIcon(i + 1, home.id === selectedId, mapTheme)}
+              eventHandlers={{ click: () => selectHome(home.id) }}
+            />
+          ))}
+        </MapContainer>
 
-      {/* Drawer */}
-      {selectedHome && (
-        <>
-          {/* Scrim — only visible when expanded */}
-          <div
-            className={'map-drawer-scrim' + (drawerOpen ? ' visible' : '')}
-            onClick={() => setDrawerOpen(false)}
-          />
+        {/* Theme toggle */}
+        <button
+          className="map-theme-toggle"
+          onClick={() => setMapTheme(t => t === 'dark' ? 'light' : 'dark')}
+          title={isLight ? 'Switch to dark map' : 'Switch to light map'}
+        >
+          {isLight ? '🌙' : '☀️'}
+        </button>
+      </div>
 
-          <div
-            className={'map-drawer' + (drawerOpen ? ' open' : '')}
-            ref={drawerRef}
-            onTouchStart={handleDrawerTouchStart}
-            onTouchEnd={handleDrawerTouchEnd}
-          >
-            {/* Drag handle + collapsed peek */}
-            <div className="map-drawer-peek" onClick={() => setDrawerOpen(o => !o)}>
-              <div className="map-drawer-handle" />
-              <div className="map-drawer-peek-row">
-                <div className="map-drawer-peek-left">
-                  <span className="map-drawer-rank">#{selectedRank}</span>
-                  <div>
-                    <div className="map-drawer-address">{selectedHome.address}</div>
-                    <div className="map-drawer-city">{[selectedHome.city, selectedHome.state, selectedHome.zip].filter(Boolean).join(', ')}</div>
-                  </div>
-                </div>
-                <div className="map-drawer-peek-right">
-                  {selectedHome.status && (
-                    <span className="map-drawer-status" style={{ color: statusColor(selectedHome.status) }}>{selectedHome.status}</span>
-                  )}
-                  <div className="map-drawer-price">{formatPrice(selectedHome.price)}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Expanded content */}
-            <div className="map-drawer-body">
-              {selectedHome.photo_url && (
-                <img src={selectedHome.photo_url} alt={selectedHome.address} className="map-drawer-photo" />
-              )}
-
-              {/* Stats */}
-              <div className="map-drawer-stats">
-                {selectedHome.beds  && <div className="map-drawer-stat"><span className="map-drawer-stat-val">{selectedHome.beds}</span><span className="map-drawer-stat-label">Beds</span></div>}
-                {selectedHome.baths && <div className="map-drawer-stat"><span className="map-drawer-stat-val">{selectedHome.baths}</span><span className="map-drawer-stat-label">Baths</span></div>}
-                {selectedHome.sqft  && <div className="map-drawer-stat"><span className="map-drawer-stat-val">{selectedHome.sqft.toLocaleString()}</span><span className="map-drawer-stat-label">Sqft</span></div>}
-                {selectedHome.acres && <div className="map-drawer-stat"><span className="map-drawer-stat-val">{selectedHome.acres}</span><span className="map-drawer-stat-label">Acres</span></div>}
-                {selectedHome.year_built && <div className="map-drawer-stat"><span className="map-drawer-stat-val">{selectedHome.year_built}</span><span className="map-drawer-stat-label">Built</span></div>}
-              </div>
-
-              {/* Intensity bars */}
-              <div className="map-drawer-intensity">
-                <div className="map-drawer-intensity-row">
-                  <span className="map-drawer-intensity-label">You</span>
-                  <div className="map-drawer-bar-track">
-                    <div className="map-drawer-bar-fill" style={{ width: myIntensity + '%' }} />
-                  </div>
-                  <span className="map-drawer-intensity-pct">{myIntensity}%</span>
-                </div>
-                <div className="map-drawer-intensity-row">
-                  <span className="map-drawer-intensity-label">Partner</span>
-                  <div className="map-drawer-bar-track">
-                    <div className="map-drawer-bar-fill partner" style={{ width: partnerIntensity + '%' }} />
-                  </div>
-                  <span className="map-drawer-intensity-pct">{partnerIntensity}%</span>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="map-drawer-actions">
-                {selectedHome.url && (
-                  <a href={selectedHome.url} target="_blank" rel="noreferrer" className="map-drawer-btn">
-                    {'View on ' + (() => { try { return new URL(selectedHome.url).hostname.replace('www.', '').split('.')[0] } catch { return 'listing' } })()} →
-                  </a>
-                )}
-                <button className="map-drawer-btn" onClick={() => setDrawerOpen(false)}>
-                  ✕ Close
-                </button>
-              </div>
+      {/* Side panel */}
+      <div className={'map-side-panel' + (selectedHome ? ' open' : '')}>
+        {!selectedHome ? (
+          <div className="map-side-empty">
+            <div style={{ fontSize: '28px', marginBottom: '12px' }}>📍</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+              Tap a pin<br/>to view details
             </div>
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            {/* Nav */}
+            <div className="map-side-nav">
+              <button className="map-side-nav-btn" onClick={() => navigate(-1)} disabled={selectedIndex === 0}>← Prev</button>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{selectedRank} of {mappable.length}</span>
+              <button className="map-side-nav-btn" onClick={() => navigate(1)} disabled={selectedIndex === mappable.length - 1}>Next →</button>
+            </div>
+
+            {/* Photo */}
+            {selectedHome.photo_url && (
+              <img src={selectedHome.photo_url} alt={selectedHome.address} className="map-side-photo" />
+            )}
+
+            {/* Header */}
+            <div className="map-side-header">
+              <div className="map-side-rank">#{selectedRank}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="map-side-address">{selectedHome.address}</div>
+                <div className="map-side-city">{[selectedHome.city, selectedHome.state, selectedHome.zip].filter(Boolean).join(', ')}</div>
+              </div>
+            </div>
+
+            <div className="map-side-price-row">
+              {selectedHome.status && (
+                <span className="map-side-status" style={{ color: statusColor(selectedHome.status) }}>{selectedHome.status}</span>
+              )}
+              <div className="map-side-price">{formatPrice(selectedHome.price)}</div>
+            </div>
+
+            {/* Stats */}
+            <div className="map-side-stats">
+              {selectedHome.beds  && <div className="map-side-stat"><span className="map-side-stat-val">{selectedHome.beds}</span><span className="map-side-stat-label">Beds</span></div>}
+              {selectedHome.baths && <div className="map-side-stat"><span className="map-side-stat-val">{selectedHome.baths}</span><span className="map-side-stat-label">Baths</span></div>}
+              {selectedHome.sqft  && <div className="map-side-stat"><span className="map-side-stat-val">{selectedHome.sqft.toLocaleString()}</span><span className="map-side-stat-label">Sqft</span></div>}
+              {selectedHome.acres && <div className="map-side-stat"><span className="map-side-stat-val">{selectedHome.acres}</span><span className="map-side-stat-label">Acres</span></div>}
+              {selectedHome.year_built && <div className="map-side-stat"><span className="map-side-stat-val">{selectedHome.year_built}</span><span className="map-side-stat-label">Built</span></div>}
+            </div>
+
+            {/* Intensity */}
+            <div className="map-side-intensity">
+              <div className="map-side-intensity-row">
+                <span className="map-side-intensity-label">You</span>
+                <div className="map-side-bar-track"><div className="map-side-bar-fill" style={{ width: myIntensity + '%' }} /></div>
+                <span className="map-side-intensity-pct">{myIntensity}%</span>
+              </div>
+              <div className="map-side-intensity-row">
+                <span className="map-side-intensity-label">Partner</span>
+                <div className="map-side-bar-track"><div className="map-side-bar-fill partner" style={{ width: partnerIntensity + '%' }} /></div>
+                <span className="map-side-intensity-pct">{partnerIntensity}%</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="map-side-actions">
+              {selectedHome.url && (
+                <a href={selectedHome.url} target="_blank" rel="noreferrer" className="map-drawer-btn">
+                  {'View on ' + (() => { try { return new URL(selectedHome.url).hostname.replace('www.', '').split('.')[0] } catch { return 'listing' } })()} →
+                </a>
+              )}
+              <button className="map-drawer-btn" onClick={() => setSelectedId(null)}>✕ Close</button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

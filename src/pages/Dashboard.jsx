@@ -877,29 +877,31 @@ const owned = ownedList?.[0]
                 </div>
               ))
             )}
+            {removedHomes.length > 0 && (
+              <>
+                <div className="combined-passed-divider" style={{ margin: '8px 0' }}>
+                  <span>Passed On · {removedHomes.length}</span>
+                </div>
+                {removedHomes.map(home => (
+                  <div key={home.id} className="removed-inline-card">
+                    {home.photo_url && (
+                      <img src={home.photo_url} alt={home.address} className="removed-inline-photo" />
+                    )}
+                    <div className="removed-inline-info">
+                      <div className="removed-card-address">{home.address}</div>
+                      <div className="removed-card-city">{[home.city, home.state].filter(Boolean).join(', ')}</div>
+                      {home.removed_reason && (
+                        <div className="removed-card-reason">"{home.removed_reason}"</div>
+                      )}
+                    </div>
+                    <button className="removed-card-restore" style={{ marginLeft: 'auto', marginTop: 0 }} onClick={() => restoreHome(home.id)}>↩ Restore</button>
+                  </div>
+                ))}
+              </>
+            )}
+
             <div className="card-list-spacer" />
           </div>
-
-          {removedHomes.length > 0 && (
-            <div className="removed-panel">
-              <div className="removed-panel-header">Passed On</div>
-              {removedHomes.map(home => (
-                <div key={home.id} className="removed-card">
-                  {home.photo_url && (
-                    <img src={home.photo_url} alt={home.address} className="removed-card-photo" />
-                  )}
-                  <div className="removed-card-info">
-                    <div className="removed-card-address">{home.address}</div>
-                    <div className="removed-card-city">{[home.city, home.state].filter(Boolean).join(', ')}</div>
-                    {home.removed_reason && (
-                      <div className="removed-card-reason">"{home.removed_reason}"</div>
-                    )}
-                    <button className="removed-card-restore" onClick={() => restoreHome(home.id)}>↩ Restore</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
