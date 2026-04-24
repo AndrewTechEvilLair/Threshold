@@ -2440,6 +2440,15 @@ body {
   font-weight: 600;
 }
 
+.share-state-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .share-list {
   padding: 16px 20px 60px;
   max-width: 720px;

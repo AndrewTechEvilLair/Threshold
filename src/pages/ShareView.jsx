@@ -5,6 +5,7 @@ export default function ShareView({ listId }) {
   const [homes, setHomes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [stateFilter, setStateFilter] = useState([])
 
   useEffect(() => {
     async function load() {
@@ -13,6 +14,7 @@ export default function ShareView({ listId }) {
           .from('homes')
           .select('*')
           .eq('list_id', listId)
+          .eq('removed', false)
           .order('created_at', { ascending: true })
 
         if (homesError) throw new Error(homesError.message)
@@ -66,6 +68,17 @@ export default function ShareView({ listId }) {
   if (loading) return <div className="loading-screen">Loading...</div>
   if (error) return <div className="loading-screen">Unable to load this list.</div>
 
+  const stateChips = [...new Set(homes.map(h => h.state).filter(Boolean))].sort()
+    .map(state => ({ state, count: homes.filter(h => h.state === state).length }))
+
+  function toggleStateFilter(state) {
+    setStateFilter(prev => prev.includes(state) ? prev.filter(s => s !== state) : [...prev, state])
+  }
+
+  const filteredHomes = stateFilter.length === 0
+    ? homes
+    : homes.filter(h => stateFilter.includes(h.state))
+
   return (
     <div className="share-view">
       <header className="share-header">
@@ -73,8 +86,23 @@ export default function ShareView({ listId }) {
         <div className="share-badge">Shared List · {homes.length} homes</div>
       </header>
 
+      {stateChips.length > 1 && (
+        <div className="share-state-bar">
+          {stateChips.map(({ state, count }) => (
+            <button
+              key={state}
+              className={`state-chip${stateFilter.includes(state) ? ' active' : ''}`}
+              onClick={() => toggleStateFilter(state)}
+            >
+              {state} <span className="state-chip-count">({count})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="share-list">
-        {homes.map((home, i) => {
+        {filteredHomes.map((home) => {
+          const rank = homes.indexOf(home) + 1
           const mapTileUrl = home.lat && home.lng
             ? `https://staticmap.openstreetmap.de/staticmap.php?center=${home.lat},${home.lng}&zoom=15&size=300x200&markers=${home.lat},${home.lng},red`
             : null
@@ -82,7 +110,7 @@ export default function ShareView({ listId }) {
 
           return (
             <div key={home.id} className="share-card">
-              <div className="share-card-rank">#{i + 1}</div>
+              <div className="share-card-rank">#{rank}</div>
 
               <div className="share-card-photo">
                 {photoSrc
