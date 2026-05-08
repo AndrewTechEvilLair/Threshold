@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Threshold — Map View</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg:        #0f0f1a;
+      --surface:   #1a1a2e;
+      --card:      #16213e;
+      --accent:    #e8442a;
+      --accent-glow: rgba(232, 68, 42, 0.45);
+      --text:      #f0f0f0;
+      --muted:     #8888aa;
+      --border:    #2a2a3e;
+      --blue:      #4A9EFF;
+      --blue-dim:  rgba(74, 158, 255, 0.18);
+      --green:     #2ec97e;
+      --drawer-peek: 124px;
+      --drawer-full: 520px;
+      --transition: 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+    }
+
+    /* ── MAP BACKGROUND ─────────────────────────────────────── */
+    #map {
+      position: fixed;
+      inset: 0;
+      background-color: #0c1220;
+      background-image:
+        linear-gradient(rgba(42, 42, 62, 0.55) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(42, 42, 62, 0.55) 1px, transparent 1px),
+        linear-gradient(rgba(42, 42, 62, 0.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(42, 42, 62, 0.2) 1px, transparent 1px);
+      background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
+      background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+    }
+
+    /* Faint "road" strokes */
+    #map::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(112deg, transparent 30%, rgba(74, 158, 255, 0.06) 30.2%, rgba(74, 158, 255, 0.06) 30.4%, transparent 30.6%),
+        linear-gradient(28deg,  transparent 55%, rgba(74, 158, 255, 0.05) 55.2%, rgba(74, 158, 255, 0.05) 55.5%, transparent 55.7%),
+        linear-gradient(75deg,  transparent 20%, rgba(74, 158, 255, 0.04) 20.2%, rgba(74, 158, 255, 0.04) 20.5%, transparent 20.7%),
+        linear-gradient(155deg, transparent 65%, rgba(74, 158, 255, 0.05) 65.2%, rgba(74, 158, 255, 0.05) 65.5%, transparent 65.7%);
+    }
+
+    /* Block "parcels" */
+    #map::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(ellipse 220px 120px at 18% 38%, rgba(26, 26, 46, 0.7) 0%, transparent 100%),
+        radial-gradient(ellipse 180px 90px at 72% 22%, rgba(26, 26, 46, 0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 260px 140px at 55% 68%, rgba(26, 26, 46, 0.65) 0%, transparent 100%),
+        radial-gradient(ellipse 150px 80px at 85% 58%, rgba(26, 26, 46, 0.5) 0%, transparent 100%);
+    }
+
+    /* ── MAP PINS ────────────────────────────────────────────── */
+    .pin {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 2.5px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      cursor: pointer;
+      z-index: 10;
+      transition: transform 0.2s ease;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    }
+
+    .pin:hover { transform: scale(1.15); }
+
+    .pin.active {
+      width: 44px;
+      height: 44px;
+      background: var(--accent);
+      color: #fff;
+      border-color: #fff;
+      border-width: 3px;
+      font-size: 14px;
+      box-shadow: 0 0 0 6px var(--accent-glow), 0 4px 20px rgba(232, 68, 42, 0.5);
+      animation: pinPulse 2.2s ease-in-out infinite;
+      z-index: 11;
+    }
+
+    @keyframes pinPulse {
+      0%, 100% { box-shadow: 0 0 0 6px var(--accent-glow), 0 4px 20px rgba(232,68,42,0.5); }
+      50%       { box-shadow: 0 0 0 14px rgba(232,68,42,0.15), 0 4px 28px rgba(232,68,42,0.7); }
+    }
+
+    /* Pin positions */
+    .pin-1 { top: 32%; left: 48%; }
+    .pin-2 { top: 19%; left: 26%; }
+    .pin-3 { top: 52%; left: 71%; }
+    .pin-4 { top: 60%; left: 22%; }
+    .pin-5 { top: 24%; left: 68%; }
+
+    /* ── TOP BAR ─────────────────────────────────────────────── */
+    #topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 14px 16px;
+      background: linear-gradient(180deg, rgba(15,15,26,0.92) 0%, rgba(15,15,26,0.0) 100%);
+      pointer-events: none;
+    }
+
+    #topbar > * { pointer-events: auto; }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(26, 26, 46, 0.88);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.2s, border-color 0.2s;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background: rgba(42, 42, 62, 0.95);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    .back-arrow {
+      font-size: 15px;
+      line-height: 1;
+      margin-top: -1px;
+    }
+
+    .topbar-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .topbar-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .topbar-subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .homes-badge {
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: rgba(26, 26, 46, 0.88);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .homes-badge span {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* ── DRAWER ──────────────────────────────────────────────── */
+    #drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      height: var(--drawer-full);
+      transform: translateY(calc(var(--drawer-full) - var(--drawer-peek)));
+      transition: transform var(--transition);
+      will-change: transform;
+    }
+
+    #drawer.expanded {
+      transform: translateY(0);
+    }
+
+    .drawer-inner {
+      position: relative;
+      height: 100%;
+      background: var(--card);
+      border-radius: 20px 20px 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.55);
+    }
+
+    /* Clickable collapsed zone */
+    #drawer-trigger {
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Drag handle */
+    .drag-handle {
+      display: flex;
+      justify-content: center;
+      padding: 12px 0 6px;
+    }
+
+    .drag-handle-bar {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.18);
+    }
+
+    /* Collapsed peek content */
+    .peek-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 20px 14px;
+      gap: 12px;
+    }
+
+    .peek-left { flex: 1; min-width: 0; }
+
+    .peek-address {
+      font-family: 'Syne', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+
+    .peek-city {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .peek-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .price-tag {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(46, 201, 126, 0.12);
+      border: 1px solid rgba(46, 201, 126, 0.3);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--green);
+    }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    /* Divider */
+    .drawer-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 20px;
+      flex-shrink: 0;
+    }
+
+    /* Expanded content */
+    .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0 20px 20px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .drawer-content::-webkit-scrollbar { width: 4px; }
+    .drawer-content::-webkit-scrollbar-track { background: transparent; }
+    .drawer-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Property photo */
+    .property-photo {
+      width: 100%;
+      height: 160px;
+      border-radius: 12px;
+      margin: 16px 0 16px;
+      background: linear-gradient(135deg, #0d1b2e 0%, #1a2a4a 35%, #1e3356 60%, #2a3f6a 80%, #1c2d4e 100%);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .property-photo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 30% 60%, rgba(74,158,255,0.1) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 35% at 75% 30%, rgba(232,68,42,0.07) 0%, transparent 60%);
+    }
+
+    /* Faux house silhouette */
+    .property-photo::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 90px;
+      background: rgba(255,255,255,0.03);
+      clip-path: polygon(15% 100%, 15% 48%, 0% 48%, 50% 8%, 100% 48%, 85% 48%, 85% 100%);
+    }
+
+    .photo-label {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(15,15,26,0.75);
+      border: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      backdrop-filter: blur(6px);
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 0 16px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .stats-row::-webkit-scrollbar { display: none; }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .stat-sep {
+      width: 1px;
+      height: 28px;
+      background: var(--border);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
+    /* Intensity section */
+    .intensity-section {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .intensity-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .intensity-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .intensity-info {
+      font-size: 10px;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    .intensity-bars {
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      gap: 0 12px;
+    }
+
+    .intensity-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .intensity-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .intensity-who {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .intensity-pct {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .intensity-pct.you   { color: var(--accent); }
+    .intensity-pct.partner { color: var(--blue); }
+
+    .bar-track {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.07);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s;
+    }
+
+    .bar-fill.you     { background: linear-gradient(90deg, #c43820, var(--accent)); }
+    .bar-fill.partner { background: linear-gradient(90deg, #2a6fbf, var(--blue)); }
+
+    .intensity-divider {
+      background: var(--border);
+      align-self: stretch;
+    }
+
+    /* Action buttons */
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 13px 12px;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s, transform 0.12s;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn.primary {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn.primary:hover {
+      background: rgba(232, 68, 42, 0.1);
+      border-color: var(--accent);
+    }
+
+    /* ── EXPAND HINT ─────────────────────────────────────────── */
+    .expand-hint {
+      position: absolute;
+      bottom: calc(var(--drawer-peek) + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(26,26,46,0.9);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--muted);
+      pointer-events: none;
+      z-index: 190;
+      backdrop-filter: blur(8px);
+      opacity: 1;
+      transition: opacity 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .expand-hint.hidden { opacity: 0; }
+
+    .hint-arrow {
+      font-size: 13px;
+      animation: bounceUp 1.6s ease-in-out infinite;
+    }
+
+    @keyframes bounceUp {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-4px); }
+    }
+
+    /* ── OVERLAY SCRIM ───────────────────────────────────────── */
+    #scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+
+    #scrim.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ── COMPASS ─────────────────────────────────────────────── */
+    .compass {
+      position: fixed;
+      right: 16px;
+      bottom: calc(var(--drawer-peek) + 20px);
+      z-index: 180;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(26,26,46,0.9);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.6s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .compass:hover { background: rgba(42,42,62,0.98); transform: rotate(45deg); }
+
+    .map-controls {
+      position: fixed;
+      right: 16px;
+      bottom: calc(var(--drawer-peek) + 64px);
+      z-index: 180;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .map-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(26,26,46,0.9);
+      border: none;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .map-btn:last-child { border-bottom: none; }
+    .map-btn:hover { background: rgba(42,42,62,0.98); }
+  </style>
+</head>
+<body>
+
+  <!-- MAP BACKGROUND -->
+  <div id="map"></div>
+
+  <!-- MAP PINS -->
+  <div class="pin active pin-1" title="2796 Mowbray Pike — $629,500">#1</div>
+  <div class="pin pin-2" title="812 Ridgeline Ct — $514,900">#2</div>
+  <div class="pin pin-3" title="4401 Lakeshore Dr — $748,000">#3</div>
+  <div class="pin pin-4" title="303 Walnut Hollow — $445,000">#4</div>
+  <div class="pin pin-5" title="1189 Summit View — $589,900">#5</div>
+
+  <!-- MAP CONTROLS -->
+  <div class="map-controls">
+    <button class="map-btn" title="Zoom in">+</button>
+    <button class="map-btn" title="Zoom out">−</button>
+  </div>
+  <div class="compass" title="Reset bearing">⊕</div>
+
+  <!-- EXPAND HINT -->
+  <div class="expand-hint" id="expandHint">
+    <span class="hint-arrow">↑</span>
+    Tap to expand
+  </div>
+
+  <!-- OVERLAY SCRIM -->
+  <div id="scrim"></div>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <a class="back-btn" href="#" onclick="return false;">
+      <span class="back-arrow">←</span>
+      Back
+    </a>
+    <div class="topbar-center">
+      <span class="topbar-title">Map View</span>
+      <span class="topbar-subtitle">Soddy-Daisy, TN</span>
+    </div>
+    <div class="homes-badge"><span>5</span> homes</div>
+  </div>
+
+  <!-- BOTTOM DRAWER -->
+  <div id="drawer">
+    <div class="drawer-inner">
+
+      <!-- TRIGGER ZONE (collapsed peek) -->
+      <div id="drawer-trigger">
+        <div class="drag-handle">
+          <div class="drag-handle-bar"></div>
+        </div>
+        <div class="peek-row">
+          <div class="peek-left">
+            <div class="peek-address">2796 Mowbray Pike</div>
+            <div class="peek-city">Soddy-Daisy, TN 37379</div>
+          </div>
+          <div class="peek-right">
+            <div class="price-tag">$629,500</div>
+            <div class="status-badge">
+              <div class="status-dot"></div>
+              ACTIVE
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-divider"></div>
+
+      <!-- EXPANDED CONTENT -->
+      <div class="drawer-content" id="drawerContent">
+
+        <!-- Property photo -->
+        <div class="property-photo">
+          <div class="photo-label">Photo placeholder</div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="stats-row">
+          <div class="stat-item">
+            <span class="stat-value">3</span>
+            <span class="stat-label">Beds</span>
+          </div>
+          <div class="stat-sep"></div>
+          <div class="stat-item">
+            <span class="stat-value">3</span>
+            <span class="stat-label">Baths</span>
+          </div>
+          <div class="stat-sep"></div>
+          <div class="stat-item">
+            <span class="stat-value">2,481</span>
+            <span class="stat-label">Sq&nbsp;Ft</span>
+          </div>
+          <div class="stat-sep"></div>
+          <div class="stat-item">
+            <span class="stat-value">1.12</span>
+            <span class="stat-label">Acres</span>
+          </div>
+        </div>
+
+        <!-- Intensity bars -->
+        <div class="intensity-section">
+          <div class="intensity-header">
+            <span class="intensity-title">Intensity</span>
+            <span class="intensity-info">How much you each want this</span>
+          </div>
+          <div class="intensity-bars">
+            <div class="intensity-col">
+              <div class="intensity-label-row">
+                <span class="intensity-who">You</span>
+                <span class="intensity-pct you">66%</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill you" id="barYou" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="intensity-divider"></div>
+            <div class="intensity-col">
+              <div class="intensity-label-row">
+                <span class="intensity-who">Partner</span>
+                <span class="intensity-pct partner">100%</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill partner" id="barPartner" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="action-row">
+          <button class="btn primary">View Listing →</button>
+          <button class="btn">In the Area 🗺️</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const drawer       = document.getElementById('drawer');
+    const trigger      = document.getElementById('drawer-trigger');
+    const scrim        = document.getElementById('scrim');
+    const expandHint   = document.getElementById('expandHint');
+    const barYou       = document.getElementById('barYou');
+    const barPartner   = document.getElementById('barPartner');
+
+    let expanded = false;
+    let barsAnimated = false;
+
+    function animateBars() {
+      if (barsAnimated) return;
+      barsAnimated = true;
+      // Small delay so the drawer slide finishes first
+      setTimeout(() => {
+        barYou.style.width     = '66%';
+        barPartner.style.width = '100%';
+      }, 120);
+    }
+
+    function expand() {
+      expanded = true;
+      drawer.classList.add('expanded');
+      scrim.classList.add('visible');
+      expandHint.classList.add('hidden');
+      animateBars();
+    }
+
+    function collapse() {
+      expanded = false;
+      drawer.classList.remove('expanded');
+      scrim.classList.remove('visible');
+      expandHint.classList.remove('hidden');
+    }
+
+    trigger.addEventListener('click', () => {
+      expanded ? collapse() : expand();
+    });
+
+    scrim.addEventListener('click', collapse);
+
+    // Clicking a pin highlights it and collapses the drawer
+    document.querySelectorAll('.pin').forEach(pin => {
+      pin.addEventListener('click', e => {
+        e.stopPropagation();
+        document.querySelectorAll('.pin').forEach(p => p.classList.remove('active'));
+        pin.classList.add('active');
+        collapse();
+      });
+    });
+
+    // Touch swipe support on drawer
+    let touchStartY = 0;
+    let touchStartTime = 0;
+
+    drawer.addEventListener('touchstart', e => {
+      touchStartY    = e.touches[0].clientY;
+      touchStartTime = Date.now();
+    }, { passive: true });
+
+    drawer.addEventListener('touchend', e => {
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      const dt = Date.now() - touchStartTime;
+      // Quick flick or significant drag
+      if (dt < 350) {
+        if (dy < -30 && !expanded) expand();
+        if (dy >  30 &&  expanded) collapse();
+      }
+    }, { passive: true });
+  </script>
+</body>
+</html>
